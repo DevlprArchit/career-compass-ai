@@ -20,7 +20,7 @@ import {
   Eye,
   FileText
 } from "lucide-react";
-import { UserProfile } from "@/lib/discovery-engine";
+import { UserProfile, cleanBadge } from "@/lib/discovery-engine";
 import { CERTIFIED_COURSES } from "@/lib/certified-courses";
 
 interface ResumeBuilderProps {
@@ -74,7 +74,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         portfolio: ""
       },
       summary: user?.name 
-        ? `Motivated ${selectedTrackTitle} candidate targeting competitive entry-level and internship engineering roles. Demonstrated foundational problem-solving abilities, clean code architecture, and hands-on technical skills.`
+        ? `Software engineer specialized in ${cleanBadge(selectedTrackTitle)} with hands-on experience building full-stack applications, algorithms, and scalable systems.`
         : "",
       skills: defaultSkills,
       experience: [],
@@ -270,13 +270,13 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-paper border border-hairline p-4 rounded-xl shadow-sm">
         <div>
           <div className="flex items-center space-x-2">
-            <h2 className="font-display text-xl font-bold text-ink">AI Resume Builder</h2>
+            <h2 className="font-display text-xl font-bold text-ink">Resume Studio</h2>
             <span className="bg-path/10 text-path text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold">
-              ✨ Draftline Engine
+              ATS Optimized
             </span>
           </div>
           <p className="text-xs text-ink-40 mt-0.5">
-            Craft an ATS-optimized, high-impact resume calibrated specifically for <span className="text-ink font-semibold">{selectedTrackTitle}</span>.
+            Build and export a single-page engineering resume formatted for <span className="text-ink font-semibold">{cleanBadge(selectedTrackTitle)}</span>.
           </p>
         </div>
 

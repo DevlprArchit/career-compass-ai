@@ -9,17 +9,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#12203A",       // Deep navy-ink for primary text and buttons
-        paper: "#F6F5F1",     // Cool off-white background
-        path: "#2F6F5E",      // Muted pine-green for progress and completed nodes
-        waypoint: "#E2A33B",  // Amber-gold accent for "You are here" and Score Ring
-        caution: "#B3452C",   // Muted brick red for job warnings and weak skills
-        "ink-40": "#8A93A6",  // Secondary metadata and disabled nodes
-        hairline: "#DCDAD2",  // Minimal clean dividers and borders
+        ink: "#0F172A",       // Deep slate/obsidian for primary text and UI buttons
+        paper: "#F8FAFC",     // Modern crisp slate-50 background (replaces yellowed paper)
+        path: "#059669",      // Vibrant modern emerald for progress, success, and active nodes
+        waypoint: "#D97706",  // Clean amber for active targets and accents
+        caution: "#DC2626",   // Crisp modern red for alerts and warnings
+        "ink-40": "#64748B",  // Slate-500 for secondary labels and metadata
+        hairline: "#E2E8F0",  // Crisp modern slate border (replaces dull gray)
       },
       fontFamily: {
-        display: ["var(--font-fraunces)", "serif"],
-        sans: ["var(--font-inter)", "sans-serif"],
+        display: ["var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["var(--font-inter)", "system-ui", "-apple-system", "sans-serif"],
       },
     },
   },

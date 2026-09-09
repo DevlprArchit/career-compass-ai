@@ -16,82 +16,84 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export function cleanBadge(text?: string): string {
+  if (!text) return "";
+  return text.replace(/\s*\([^)]*\)/g, "").trim();
+}
+
 export const DEGREE_OPTIONS = [
-  "College Student (B.Tech / B.E. / BCA / MCA / B.Sc / Any Degree)",
-  "Graduated Fresher (Actively Seeking 1st Tech Job)",
-  "Internship Candidate (Summer / Industrial Software Internships)",
-  "Career Switcher / Self-Taught Developer (Non-Tech to Tech Transition)",
-  "Early-Career Working Professional (Upskilling / Lateral Placement Prep)",
-  "Postgraduate / Research Scholar (M.Tech / M.S. / PhD)"
+  "Undergraduate (CS / IT / Engineering)",
+  "Recent Graduate (Seeking 1st Tech Role)",
+  "Career Switcher / Self-Taught",
+  "Junior Software Engineer",
+  "Postgraduate (M.Tech / MS / PhD)"
 ];
 
 export const ACADEMIC_SEMESTER_OPTIONS = [
-  "Early Foundations (1st or 2nd Year College / Starting Out)",
-  "Pre-Final Year (Summer Internship & Placement Prep)",
-  "Final Year Student (Campus Placement Drives & Off-Campus Hiring)",
-  "Graduated Fresher (Actively Interviewing for Immediate Roles)",
-  "Career Switcher / Upskiller (Targeting Tech Role Transition)"
+  "1st / 2nd Year (Foundations)",
+  "3rd Year (Internship Prep)",
+  "Final Year (Placement Season)",
+  "Graduated (Immediate Hiring)",
+  "Working Professional (Upskilling)"
 ];
 
 export const CGPA_BAND_OPTIONS = [
-  "8.5+ CGPA (Top Academic Standing)",
-  "7.5 – 8.5 CGPA (Standard Placement Eligibility)",
-  "6.5 – 7.5 CGPA (Good Core Standing)",
-  "Below 6.5 CGPA (Focusing heavily on Projects/Skills)"
+  "8.5+ CGPA (Top Tier)",
+  "7.5 – 8.5 CGPA (Placement Ready)",
+  "6.5 – 7.5 CGPA (Solid)",
+  "Below 6.5 CGPA (Project Focus)"
 ];
 
 export const CODING_EXPERIENCE_LEVELS = [
-  "Complete Beginner (< 3 months, basic syntax)",
-  "College Lab Coder (3–12 months, coursework projects)",
-  "Practical Builder (1–2 years, built independent apps)",
-  "Active Problem Solver (Regular LeetCode / competitive coder)"
+  "Beginner (< 6 months, basic syntax)",
+  "Intermediate (Built independent projects)",
+  "Advanced (Production apps & regular problem solver)"
 ];
 
 export const DSA_PROBLEM_COUNTS = [
-  "0 problems solved yet (Starting from zero)",
-  "1 – 25 Easy foundational problems",
-  "25 – 75 Mixed problems (Arrays, Strings, Hashmaps)",
-  "75 – 150+ Medium problems (Placement Ready)"
+  "0 – 25 Problems (Starting out)",
+  "25 – 75 Problems (Core data structures)",
+  "75 – 150+ Problems (Interview ready)"
 ];
 
 export const SPECIALIZATION_TRADES = [
   {
     id: "ai-ml-engineer",
-    title: "Python & AI / Machine Learning Engineer",
-    shortDesc: "Specializes in Python, Neural Networks, PyTorch, LangChain, and deploying modern LLM solutions.",
-    matchReason: "High demand across startups and enterprise product teams building AI-native tools."
+    title: "AI & Machine Learning Engineer",
+    shortDesc: "PyTorch, Transformers, LLM inference pipelines, and production MLOps.",
+    matchReason: "High demand across high-growth startups and tech enterprises."
   },
   {
     id: "fullstack-python",
-    title: "Full-Stack Web Developer (Python + Modern JS)",
-    shortDesc: "Builds responsive web applications, REST APIs, database schemas, and interactive frontends.",
-    matchReason: "Highest volume of fresher openings across startups and product firms."
+    title: "Full-Stack Engineer (React + Python)",
+    shortDesc: "Next.js frontends, FastAPI backends, relational databases, and REST APIs.",
+    matchReason: "Highest volume of engineering opportunities across industry sectors."
   },
   {
     id: "data-scientist",
     title: "Data Scientist & Analytics Engineer",
-    shortDesc: "Analyzes datasets with Pandas/NumPy, builds predictive ML models, and extracts actionable business insights.",
-    matchReason: "Directly translates statistics and math knowledge into high-paying analytics roles."
+    shortDesc: "Pandas/NumPy data processing, statistical modeling, and ML analysis.",
+    matchReason: "Directly bridges analytics, business intelligence, and predictive modeling."
   },
   {
     id: "backend-cloud",
-    title: "Backend Systems & Cloud Developer",
-    shortDesc: "Designs high-throughput APIs, microservices, Docker containers, and PostgreSQL databases.",
-    matchReason: "Fundamental backbone of all scalable web platforms and cloud products."
+    title: "Backend & Cloud Systems Engineer",
+    shortDesc: "High-throughput APIs, Docker containerization, PostgreSQL, and Linux.",
+    matchReason: "Core architecture for scalable web services and cloud infrastructure."
   }
 ];
 
 export const TARGET_COMPANY_TIERS = [
-  "Tier-1 Product & Tech Unicorns (High bar: DSA + System fundamentals)",
-  "Fast-Growing Tech Startups (Fast-paced: Full-stack + AI builders)",
-  "Global Tech Consultancies & MNCs (TCS, Infosys, Accenture, Capgemini)",
-  "Remote Global Tech Companies (Independent, self-driven developers)"
+  "Tier-1 Tech & Product Unicorns",
+  "High-Growth Startups",
+  "Global Tech Consultancies & MNCs",
+  "Remote Global Teams"
 ];
 
 export const PLACEMENT_TIMELINES = [
-  "Immediate: Next 1 – 3 Months (Urgent job readiness)",
-  "Upcoming Semester: 3 – 6 Months (Summer internships & hiring rounds)",
-  "Full Year: 9 – 12 Months (Comprehensive campus placement roadmap)"
+  "Next 1 – 3 Months (Immediate)",
+  "3 – 6 Months (Upcoming hiring cycle)",
+  "6 – 12 Months (Comprehensive prep)"
 ];
 
 export interface AccessibleQuestion {

@@ -77,7 +77,8 @@ import {
   TRADE_SKILL_MATRICES,
   COMPANY_TIER_EVALUATIONS,
   TradeSkillMetric,
-  CompanyTierMatch
+  CompanyTierMatch,
+  cleanBadge
 } from "@/lib/discovery-engine";
 
 import { CERTIFIED_COURSES, CertifiedCourse, getRecommendedCoursesForTrade } from "@/lib/certified-courses";
@@ -1240,16 +1241,16 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         <section className="px-6 md:px-12 pt-12 pb-10 max-w-4xl mx-auto text-center space-y-5">
           <div className="inline-flex items-center space-x-2 bg-hairline/50 border border-hairline px-3 py-1 rounded-full text-xs text-ink">
             <span className="w-1.5 h-1.5 rounded-full bg-path animate-pulse"></span>
-            <span>Engineering Career Acceleration Platform</span>
+            <span className="font-medium">Developer Career Engine</span>
           </div>
 
-          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl text-ink font-semibold tracking-tight leading-tight">
-            Accelerate your software <br className="hidden sm:inline" />
-            <span className="text-path">engineering career.</span>
+          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl text-ink font-bold tracking-tight leading-tight">
+            The direct path from <br className="hidden sm:inline" />
+            <span className="text-path">code to hired.</span>
           </h1>
 
           <p className="text-ink-40 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">
-            Diagnostic skill assessments, channelized 12-week roadmaps, accredited industry certifications, and ATS-optimized resumes — built for every ambitious developer.
+            Benchmark your engineering skills, follow curated 12-week roadmaps, earn accredited certificates, and build ATS-ready resumes.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-1">
@@ -1274,15 +1275,15 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             </div>
             <div className="py-1">
               <span className="font-display font-bold text-xl md:text-2xl text-path block">100% Free</span>
-              <span className="text-[11px] text-ink-40">Accredited Certificates</span>
+              <span className="text-[11px] text-ink-40">Direct Certificates</span>
             </div>
             <div className="py-1">
               <span className="font-display font-bold text-xl md:text-2xl text-waypoint block">12 Weeks</span>
-              <span className="text-[11px] text-ink-40">Channelized Pacing</span>
+              <span className="text-[11px] text-ink-40">Curated Milestones</span>
             </div>
             <div className="py-1">
-              <span className="font-display font-bold text-xl md:text-2xl text-ink block">Zero Fluff</span>
-              <span className="text-[11px] text-ink-40">No Subscriptions</span>
+              <span className="font-display font-bold text-xl md:text-2xl text-ink block">Zero Ads</span>
+              <span className="text-[11px] text-ink-40">Built for Developers</span>
             </div>
           </div>
         </section>
@@ -1661,7 +1662,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             <div className="w-7 h-7 rounded bg-ink flex items-center justify-center text-paper font-display font-bold text-sm">
               C
             </div>
-            <span className="font-display font-semibold text-lg text-ink">Candidate Career & Specialization Intake</span>
+            <span className="font-display font-semibold text-lg text-ink">Career Profile Setup</span>
           </div>
           <span className="text-xs font-mono text-ink-40">Step {onboardingStep} of 5</span>
         </header>
@@ -1672,18 +1673,18 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           {onboardingStep === 1 && (
             <div className="space-y-6">
               <div>
-                <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Stage 1 of 2: Candidate Persona & Background</span>
+                <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Step 1 of 4 · Background</span>
                 <h2 className="font-display text-2xl md:text-3xl font-semibold text-ink mt-1">
-                  What is your educational or professional background?
+                  What is your background?
                 </h2>
                 <p className="text-xs text-ink-40 mt-1">
-                  Whether you are a college student, graduated fresher, internship seeker, or career switcher, we personalize the evaluation to your goals.
+                  Tell us your current stage so we can calibrate your benchmark tests and roadmap.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-mono uppercase text-ink-40 block mb-2">Candidate Persona / Background</label>
+                  <label className="text-xs font-mono uppercase text-ink-40 block mb-2">Education / Experience Level</label>
                   <div className="space-y-2">
                     {DEGREE_OPTIONS.map(deg => (
                       <div 
@@ -1701,7 +1702,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 </div>
 
                 <div>
-                  <label className="text-xs font-mono uppercase text-ink-40 block mb-2">Career Stage / Preparation Urgency</label>
+                  <label className="text-xs font-mono uppercase text-ink-40 block mb-2">Academic / Preparation Stage</label>
                   <div className="space-y-2">
                     {ACADEMIC_SEMESTER_OPTIONS.map(sem => (
                       <div 
@@ -1719,7 +1720,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 </div>
 
                 <div>
-                  <label className="text-xs font-mono uppercase text-ink-40 block mb-2">Academic CGPA / Grade Band</label>
+                  <label className="text-xs font-mono uppercase text-ink-40 block mb-2">CGPA / Grade Band</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {CGPA_BAND_OPTIONS.map(cgpa => (
                       <div 
@@ -1741,7 +1742,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 <button 
                   onClick={() => setOnboardingStep(2)}
                   className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-6 py-2.5 rounded-lg flex items-center space-x-2 shadow-sm">
-                  <span>Next: Coding Background</span>
+                  <span>Next: Coding Experience</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1752,18 +1753,18 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           {onboardingStep === 2 && (
             <div className="space-y-6">
               <div>
-                <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Stage 1 of 2: Practical Experience</span>
+                <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Step 2 of 4 · Experience</span>
                 <h2 className="font-display text-2xl md:text-3xl font-semibold text-ink mt-1">
-                  How much coding have you done so far?
+                  What is your coding experience?
                 </h2>
                 <p className="text-xs text-ink-40 mt-1">
-                  Be completely honest. We use this to set diagnostic difficulty appropriately.
+                  This helps set the difficulty and focus of your diagnostic questions.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-mono uppercase text-ink-40 block mb-2">Hands-on Programming Experience</label>
+                  <label className="text-xs font-mono uppercase text-ink-40 block mb-2">Programming Proficiency</label>
                   <div className="space-y-2">
                     {CODING_EXPERIENCE_LEVELS.map(lvl => (
                       <div 
@@ -1781,7 +1782,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 </div>
 
                 <div>
-                  <label className="text-xs font-mono uppercase text-ink-40 block mb-2">DSA / Problem Solving Practice Count</label>
+                  <label className="text-xs font-mono uppercase text-ink-40 block mb-2">DSA & Problem Solving Practice</label>
                   <div className="space-y-2">
                     {DSA_PROBLEM_COUNTS.map(count => (
                       <div 
@@ -1817,7 +1818,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 </div>
 
                 <div>
-                  <label className="text-xs font-mono uppercase text-ink-40 block mb-1">Weekly Time Commitment</label>
+                  <label className="text-xs font-mono uppercase text-ink-40 block mb-1">Weekly Study Commitment</label>
                   <div className="flex items-center space-x-3">
                     <input 
                       type="range" 
@@ -1842,7 +1843,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 <button 
                   onClick={() => setOnboardingStep(3)}
                   className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-6 py-2.5 rounded-lg flex items-center space-x-2 shadow-sm">
-                  <span>Next: Choose Specialization</span>
+                  <span>Next: Choose Track</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1853,12 +1854,12 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           {onboardingStep === 3 && (
             <div className="space-y-6">
               <div>
-                <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Stage 2 of 2: Specialization Trade</span>
+                <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Step 3 of 4 · Engineering Track</span>
                 <h2 className="font-display text-2xl md:text-3xl font-semibold text-ink mt-1">
-                  Which specialization trade do you want to target?
+                  Which engineering track do you want to target?
                 </h2>
                 <p className="text-xs text-ink-40 mt-1">
-                  We will evaluate your foundational Python and domain concepts against this trade.
+                  Your benchmark diagnostic and 12-week curriculum will be calibrated specifically for this role.
                 </p>
               </div>
 
@@ -1874,7 +1875,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     }`}>
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="font-medium text-sm text-ink">{trade.title}</h4>
+                        <h4 className="font-medium text-sm text-ink">{cleanBadge(trade.title)}</h4>
                         <p className="text-xs text-ink-40 mt-1 leading-relaxed">{trade.shortDesc}</p>
                       </div>
                       {selectedTrade.id === trade.id && (
@@ -1895,7 +1896,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                   onClick={() => handleProceedToDiagnostic(selectedTrade)}
                   disabled={isGeneratingAssessment}
                   className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-6 py-2.5 rounded-lg flex items-center space-x-2 shadow-sm">
-                  <span>{isGeneratingAssessment ? "Calibrating Questions..." : "Begin Specialization Diagnostic"}</span>
+                  <span>{isGeneratingAssessment ? "Loading Assessment..." : "Start Skills Assessment"}</span>
                   <Sparkles className="w-4 h-4 text-waypoint" />
                 </button>
               </div>
@@ -1907,12 +1908,12 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             <div className="space-y-6">
               <div className="flex items-center justify-between text-xs text-ink-40 border-b border-hairline pb-3 font-mono">
                 <span>Question {diagnosticIndex + 1} of {diagnosticQuestions.length}</span>
-                <span className="text-path uppercase font-semibold">{selectedTrade.title}</span>
+                <span className="text-path uppercase font-semibold">{cleanBadge(selectedTrade.title)}</span>
               </div>
 
               <div>
                 <span className="text-[11px] font-mono uppercase tracking-wider text-ink-40 block">
-                  Category: {diagnosticQuestions[diagnosticIndex].category}
+                  Topic: {diagnosticQuestions[diagnosticIndex].category}
                 </span>
                 <h2 className="font-display text-xl md:text-2xl font-semibold text-ink mt-1.5 leading-snug">
                   {diagnosticQuestions[diagnosticIndex].question}
@@ -1946,7 +1947,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                       ? "bg-ink text-paper hover:bg-ink/90 cursor-pointer shadow-sm" 
                       : "bg-hairline text-ink-40 cursor-not-allowed"
                   }`}>
-                  <span>{diagnosticIndex < diagnosticQuestions.length - 1 ? "Submit & Next Question" : "Complete Assessment & Synthesize"}</span>
+                  <span>{diagnosticIndex < diagnosticQuestions.length - 1 ? "Next Question" : "Finish & View Evaluation"}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -1957,9 +1958,9 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           {onboardingStep === 5 && (
             <div className="text-center py-12 space-y-5">
               <div className="w-12 h-12 rounded-full border-4 border-waypoint border-t-transparent animate-spin mx-auto" />
-              <h3 className="font-display text-2xl font-semibold text-ink">Synthesizing Your Candidate Dashboard</h3>
+              <h3 className="font-display text-2xl font-semibold text-ink">Generating Your Readiness Report</h3>
               <p className="text-xs text-ink-40 max-w-md mx-auto leading-relaxed">
-                Analyzing your responses for <strong>{selectedTrade.title}</strong>, computing your Readiness Ring, and sequencing your certified courses and mock tests...
+                Evaluating your responses against industry benchmarks and calibrating your 12-week roadmap for <strong>{cleanBadge(selectedTrade.title)}</strong>...
               </p>
             </div>
           )}
@@ -2064,18 +2065,24 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           <div className="space-y-8">
             <div className="border-b border-hairline pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <div className="flex items-center space-x-2 text-xs font-mono text-path mb-1.5">
-                  <span className="bg-path/10 text-path px-2 py-0.5 rounded font-semibold">{currentUser?.specializationTrade || selectedRole.title} Track</span>
+                <div className="flex flex-wrap items-center gap-2 text-xs font-mono mb-2">
+                  <span className="bg-path/10 text-path px-2.5 py-0.5 rounded-md font-semibold">
+                    {cleanBadge(currentUser?.specializationTrade || selectedRole.title)}
+                  </span>
                   <span className="text-hairline">•</span>
-                  <span className="text-ink-40">{currentUser?.degree || selectedDegree}</span>
+                  <span className="text-ink-40 bg-hairline/40 px-2.5 py-0.5 rounded-md">
+                    {cleanBadge(currentUser?.degree || selectedDegree)}
+                  </span>
                   <span className="text-hairline">•</span>
-                  <span className="text-ink-40">{currentUser?.semesterOrStatus || selectedSemester}</span>
+                  <span className="text-ink-40 bg-hairline/40 px-2.5 py-0.5 rounded-md">
+                    {cleanBadge(currentUser?.semesterOrStatus || selectedSemester)}
+                  </span>
                 </div>
-                <h1 className="font-display text-3xl md:text-4xl text-ink font-semibold">
+                <h1 className="font-display text-2xl md:text-3xl text-ink font-bold tracking-tight">
                   Welcome back, {currentUser?.name ? currentUser.name.split(" ")[0] : "Candidate"} 👋
                 </h1>
                 <p className="text-xs md:text-sm text-ink-40 mt-1 max-w-xl">
-                  Here is your real-time placement readiness score, recommended weekly focus, and curriculum progress.
+                  Track your engineering readiness, skill benchmarks, and milestone curriculum.
                 </p>
               </div>
 
@@ -2084,16 +2091,16 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                   onClick={handleExportPlacementReport}
                   className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-3.5 py-2 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all">
                   <Download className="w-3.5 h-3.5 text-waypoint" />
-                  <span>Export Placement Report</span>
+                  <span>Export Report</span>
                 </button>
                 <button 
                   onClick={() => {
                     setOnboardingStep(1);
                     setSessionState("onboarding");
                   }}
-                  className="border border-hairline hover:border-ink text-ink text-xs font-medium px-3.5 py-2 rounded-lg flex items-center space-x-1.5">
+                  className="border border-hairline hover:border-ink text-ink text-xs font-medium px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition-colors">
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>{readinessScore === null ? "Start Diagnostic" : "Retake Diagnostic"}</span>
+                  <span>{readinessScore === null ? "Start Assessment" : "Retake Assessment"}</span>
                 </button>
               </div>
             </div>
@@ -2111,13 +2118,13 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 <div className="space-y-1.5">
                   <div className="inline-flex items-center space-x-2 bg-path/10 text-path px-2.5 py-0.5 rounded text-xs font-mono font-semibold">
                     <Sparkles className="w-3.5 h-3.5 text-waypoint" />
-                    <span>Specialization Diagnostic Required</span>
+                    <span>Skills Benchmark Pending</span>
                   </div>
                   <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink">
-                    Welcome, {currentUser?.name || "Candidate"}!
+                    Benchmark your {cleanBadge(selectedRole.title)} skills
                   </h2>
                   <p className="text-xs sm:text-sm text-ink-40 max-w-2xl leading-relaxed">
-                    Complete your 5-minute technical diagnostic for <strong>{selectedRole.title}</strong> to calculate your verified placement readiness score, AI gap analysis, and tailored curriculum.
+                    Complete the 5-minute technical diagnostic to assess your baseline, unlock your skill breakdown, and calibrate your 12-week roadmap.
                   </p>
                 </div>
                 <button
@@ -2170,20 +2177,20 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 {tradeFitAnalysis ? (
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">AI Placement Advisor Analysis</span>
+                      <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Advisor Insights & Recommendations</span>
                       <span className="bg-path/10 text-path text-xs font-semibold px-2.5 py-0.5 rounded font-mono">
-                        Trade Fit: {tradeFitAnalysis.tradeFitIndex}% Match
+                        Role Alignment: {tradeFitAnalysis.tradeFitIndex}% Match
                       </span>
                     </div>
-                    <h3 className="font-display text-xl text-ink font-semibold mt-2">{tradeFitAnalysis.recommendedTrack}</h3>
+                    <h3 className="font-display text-xl text-ink font-semibold mt-2">{cleanBadge(tradeFitAnalysis.recommendedTrack)}</h3>
                     <p className="text-xs text-ink-40 mt-2 leading-relaxed">
-                      <strong>Primary Strength:</strong> {tradeFitAnalysis.primaryStrength}
+                      <strong className="text-ink">Primary Strength:</strong> {tradeFitAnalysis.primaryStrength}
                     </p>
                     <p className="text-xs text-caution mt-2 leading-relaxed">
-                      <strong>Identified Critical Gap:</strong> {tradeFitAnalysis.criticalGap}
+                      <strong className="text-caution">Identified Focus Area:</strong> {tradeFitAnalysis.criticalGap}
                     </p>
                     <div className="bg-hairline/20 p-3 rounded-lg mt-3 text-xs text-ink-40 leading-relaxed border border-hairline/50">
-                      <span className="font-mono text-ink font-semibold block mb-0.5">Strategic Recommendation:</span>
+                      <span className="font-mono text-ink font-semibold block mb-0.5">Recommended Next Steps:</span>
                       {tradeFitAnalysis.placementAdvice}
                     </div>
                   </div>
@@ -2192,9 +2199,9 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     <div className="w-10 h-10 rounded-full bg-waypoint/15 flex items-center justify-center mx-auto text-waypoint">
                       <Sparkles className="w-5 h-5" />
                     </div>
-                    <h3 className="font-display text-lg font-semibold text-ink">Diagnostic Assessment Pending</h3>
+                    <h3 className="font-display text-lg font-semibold text-ink">Benchmark Evaluation Pending</h3>
                     <p className="text-xs text-ink-40 max-w-md mx-auto leading-relaxed">
-                      Take your 5-minute specialization diagnostic to reveal your primary strengths, skill gaps, and calibrated placement advice.
+                      Take your 5-minute skills evaluation to uncover your strengths, priority focus areas, and curated career recommendations.
                     </p>
                     <button
                       onClick={() => {
@@ -2214,27 +2221,27 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     onClick={() => setAppView("certifications")}
                     className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-1.5 shadow-sm">
                     <Award className="w-4 h-4 text-waypoint" />
-                    <span>View Free Certified Courses</span>
+                    <span>Certifications Catalog</span>
                   </button>
                   <button 
                     onClick={() => setAppView("roadmap")}
                     className="border border-hairline hover:bg-hairline/50 text-ink text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-1.5">
                     <Layers className="w-4 h-4 text-path" />
-                    <span>View 12-Week Roadmap</span>
+                    <span>12-Week Roadmap</span>
                   </button>
                   {FEATURE_FLAGS.showCodingWorkbench && (
                     <button 
                       onClick={() => setAppView("coding")}
                       className="border border-hairline hover:bg-hairline/50 text-ink text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-1.5">
                       <Terminal className="w-4 h-4" />
-                      <span>Take Mock Coding Test</span>
+                      <span>Coding Practice</span>
                     </button>
                   )}
                   <button 
                     onClick={() => setAppView("resume")}
                     className="border border-path/40 bg-path/5 hover:bg-path/10 text-path text-xs font-semibold px-4 py-2 rounded-lg flex items-center space-x-1.5 transition-colors">
                     <Sparkles className="w-4 h-4 text-waypoint" />
-                    <span>Build ATS Resume (Draftline AI)</span>
+                    <span>Build ATS Resume</span>
                   </button>
                 </div>
               </div>
@@ -2244,26 +2251,26 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             <div className="bg-paper border border-hairline rounded-xl p-6 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-hairline pb-3">
                 <div>
-                  <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Skill Progress & Focus Areas</span>
-                  <h2 className="font-display text-xl text-ink font-semibold mt-0.5">Your Proficiency vs. Campus Hiring Benchmark</h2>
+                  <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Skill Competencies</span>
+                  <h2 className="font-display text-xl text-ink font-semibold mt-0.5">Skill Breakdown & Industry Benchmarks</h2>
                 </div>
                 <div className="flex items-center space-x-4 text-xs font-mono text-ink-40">
                   <span className="flex items-center space-x-1.5">
                     <span className="w-3 h-2 rounded bg-path inline-block" />
-                    <span>Candidate Score</span>
+                    <span>Your Score</span>
                   </span>
                   <span className="flex items-center space-x-1.5">
                     <span className="w-2 h-2 rounded-full bg-ink inline-block" />
-                    <span>Campus Target</span>
+                    <span>Target</span>
                   </span>
                 </div>
               </div>
 
               {readinessScore === null && !dynamicSkillMatrix ? (
                 <div className="py-8 text-center border border-dashed border-hairline rounded-lg text-xs text-ink-40 space-y-2">
-                  <p className="font-medium text-ink">Skill matrix calibration pending.</p>
+                  <p className="font-medium text-ink">Benchmark evaluation pending.</p>
                   <p className="max-w-md mx-auto text-[11px]">
-                    Complete the 5-minute technical diagnostic to measure your proficiency against company hiring benchmarks across core trade skills.
+                    Complete the 5-minute diagnostic to benchmark your proficiency against industry hiring standards.
                   </p>
                 </div>
               ) : (
@@ -2456,7 +2463,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                         : "border border-hairline text-ink hover:bg-hairline/40"
                     }`}>
                     {cat === "My Track Recommended" && <Sparkles className="w-3.5 h-3.5 text-waypoint" />}
-                    <span>{cat === "My Track Recommended" ? `✨ Recommended for ${selectedRole.title.split(" ")[0]}` : cat}</span>
+                    <span>{cat === "My Track Recommended" ? "✨ Recommended for You" : cat}</span>
                   </button>
                 ))}
               </div>
@@ -2501,7 +2508,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                             <div className="mb-2">
                               <span className="bg-path/10 text-path text-[10px] font-semibold font-mono px-2 py-0.5 rounded border border-path/20 inline-flex items-center space-x-1">
                                 <span>★</span>
-                                <span>Recommended for {selectedTrade.title}</span>
+                                <span>Recommended for {cleanBadge(selectedTrade.title)}</span>
                               </span>
                             </div>
                           )}

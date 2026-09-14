@@ -1,8 +1,8 @@
 import { createBrowserClient } from '@supabase/ssr';
 
 export function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xyzcompany.supabase.co';
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-key';
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rgxmotfhyivbxwubggcf.supabase.co';
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJneG1vdGZoeWl2Ynh3dWJnZ2NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3OTIxOTMsImV4cCI6MjEwNDM2ODE5M30.RZ0mNDtXFVnWY_i7BQhDZg4f1XhQNQlHlCdzaFevOqg';
 
   return createBrowserClient(supabaseUrl, supabaseKey);
 }

@@ -95,77 +95,68 @@ CREATE POLICY "Interview sessions are accessible only by owner"
     ON public.interview_sessions FOR ALL USING (auth.uid() = user_id);
 
 -- ==========================================================
--- SEED DATA: Verified YouTube Courses (Individual Inserts)
+-- SEED DATA: Verified Engineering Tracks & Courses
 -- ==========================================================
 DELETE FROM public.courses;
 
 INSERT INTO public.courses (milestone_order, title, description, why_matters, skill_tags, duration_hours, youtube_url, creator)
-VALUES (
+VALUES 
+(
     1,
     'Mathematical Foundations & Vector Calculus',
     'Geometric visualization of vector transformations, matrix multiplications, determinants, and eigenvectors.',
     'Essential for backpropagation, loss landscapes, and matrix multiplications.',
-    ARRAY['linear-algebra', 'calculus', 'numpy', 'vectors'],
+    '{"linear-algebra", "calculus", "numpy", "vectors"}'::TEXT[],
     25,
     'https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab',
     '3Blue1Brown'
-);
-
-INSERT INTO public.courses (milestone_order, title, description, why_matters, skill_tags, duration_hours, youtube_url, creator)
-VALUES (
+),
+(
     2,
     'Classical Machine Learning & Statistical Modeling',
     'Visual derivations of Decision Trees, Random Forests, XGBoost, and evaluation metrics by Josh Starmer.',
     'Tabular data and statistical foundations make up 70% of industry models.',
-    ARRAY['scikit-learn', 'xgboost', 'bias-variance', 'statistics'],
+    '{"scikit-learn", "xgboost", "bias-variance", "statistics"}'::TEXT[],
     40,
     'https://www.youtube.com/playlist?list=PLblh5JKOoLUICTaGLRoHQDuF_7q2GfuJF',
     'StatQuest / Andrew Ng'
-);
-
-INSERT INTO public.courses (milestone_order, title, description, why_matters, skill_tags, duration_hours, youtube_url, creator)
-VALUES (
+),
+(
     3,
     'Deep Learning & Neural Networks from Scratch',
     'Build micrograd, autograd, MLP, and backpropagation mechanics from scratch in PyTorch.',
     'Must be able to derive computational graphs and optimize PyTorch models without black-box abstractions.',
-    ARRAY['pytorch', 'backprop', 'autograd', 'optimizers'],
+    '{"pytorch", "backprop", "autograd", "optimizers"}'::TEXT[],
     35,
     'https://www.youtube.com/playlist?list=PLAqhIrjkxbuWI23v9cThsA9GvCAUhRvKZ',
     'Andrej Karpathy (Zero to Hero)'
-);
-
-INSERT INTO public.courses (milestone_order, title, description, why_matters, skill_tags, duration_hours, youtube_url, creator)
-VALUES (
+),
+(
     4,
     'Transformers & Modern NLP Architectures',
     'Coding nanoGPT step-by-step: tokenization, attention heads, residual connections, and layer normalization.',
     'Self-attention, multi-head attention, and causal masking power all modern LLMs.',
-    ARRAY['transformers', 'attention-mechanisms', 'huggingface'],
+    '{"transformers", "attention-mechanisms", "huggingface"}'::TEXT[],
     30,
     'https://www.youtube.com/watch?v=kCc8FmEb1nY',
     'Andrej Karpathy nanoGPT'
-);
-
-INSERT INTO public.courses (milestone_order, title, description, why_matters, skill_tags, duration_hours, youtube_url, creator)
-VALUES (
+),
+(
     5,
     'Generative AI, RAG & Autonomous Agent Systems',
     'Hands-on implementations of OpenAI/Gemini APIs, LangChain agents, ChromaDB/FAISS vector retrieval, and end-to-end RAG.',
     'Production enterprise demand: semantic chunking, vector embeddings, and LangChain/LlamaIndex agents.',
-    ARRAY['rag', 'vector-databases', 'langchain', 'lora-finetuning'],
+    '{"rag", "vector-databases", "langchain", "lora-finetuning"}'::TEXT[],
     35,
     'https://www.youtube.com/playlist?list=PLZoTAELRMXVNbOXGEBP_Wd-bypY8N_P_1',
     'Krish Naik'
-);
-
-INSERT INTO public.courses (milestone_order, title, description, why_matters, skill_tags, duration_hours, youtube_url, creator)
-VALUES (
+),
+(
     6,
     'Production MLOps, Serving & Quantization',
     'Experiment tracking (MLflow), pipeline orchestration (Prefect), Docker deployment, and drift monitoring.',
     'Deploying models via async FastAPI, Docker containerization, and TensorRT/vLLM batching.',
-    ARRAY['mlops', 'fastapi', 'docker', 'model-serving', 'vllm'],
+    '{"mlops", "fastapi", "docker", "model-serving", "vllm"}'::TEXT[],
     30,
     'https://www.youtube.com/playlist?list=PL3MmuxUbc_hIhxl5Ji8t4v6daBQUptpwP',
     'DataTalks.Club MLOps Zoomcamp'

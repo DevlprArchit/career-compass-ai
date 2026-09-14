@@ -35,13 +35,22 @@ import {
   ChevronRight,
   ShieldCheck,
   Briefcase,
-  Star
+  Star,
+  Target,
+  Gift,
+  DollarSign,
+  CheckCircle2
 } from "lucide-react";
+import AwsStudentBuilderModal from "./AwsStudentBuilderModal";
 
 interface StudentProfileProps {
   user: UserProfile | null;
   onUpdateUser: (updated: UserProfile) => void;
   onNavigateToTab: (tab: any) => void;
+  latestInterview?: any;
+  diagnosticFit?: any;
+  readinessScore?: number | null;
+  onOpenAwsModal?: () => void;
 }
 
 const COVER_PRESETS = [
@@ -52,15 +61,57 @@ const COVER_PRESETS = [
   { id: "dark", name: "Midnight Stealth", class: "bg-gradient-to-r from-slate-900 via-slate-800 to-zinc-900" }
 ];
 
-export default function StudentProfile({ user, onUpdateUser, onNavigateToTab }: StudentProfileProps) {
+export default function StudentProfile({ 
+  user, 
+  onUpdateUser, 
+  onNavigateToTab,
+  latestInterview,
+  diagnosticFit,
+  readinessScore,
+  onOpenAwsModal
+}: StudentProfileProps) {
   // State for active profile tab
   const [activeTab, setActiveTab] = useState<"overview" | "skills" | "projects" | "settings">("overview");
 
-  // Edit Profile & Share Modal State
+  // Edit Profile, Share Modal & AWS Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [internalAwsModalOpen, setInternalAwsModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedBadge, setCopiedBadge] = useState(false);
+
+  // Persisted Diagnostic and Interview Data
+  const [effectiveAssessment, setEffectiveAssessment] = useState<any>(() => {
+    if (diagnosticFit) return diagnosticFit;
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("careercompass_trade_fit");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return null;
+  });
+
+  const [effectiveInterview, setEffectiveInterview] = useState<any>(() => {
+    if (latestInterview) return latestInterview;
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("careercompass_latest_interview");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (diagnosticFit) setEffectiveAssessment(diagnosticFit);
+  }, [diagnosticFit]);
+
+  useEffect(() => {
+    if (latestInterview) setEffectiveInterview(latestInterview);
+  }, [latestInterview]);
+
+  const effectiveScore = readinessScore ?? user?.readinessScore ?? 75;
 
   // Form Fields for Editing - Pure real data derived from user intake
   const [formData, setFormData] = useState({
@@ -533,6 +584,163 @@ export default function StudentProfile({ user, onUpdateUser, onNavigateToTab }: 
                   <span className="text-xs font-semibold text-[#1E1B18]">{user?.dsaCount || "0 – 25 Problems"}</span>
                 </div>
               </div>
+            </div>
+
+            {/* AWS Student Builder · Campus Leader Initiative Spotlight Banner */}
+            <div className="bg-[#FAF6EE] rounded-2xl p-5 sm:p-6 border-2 border-[#1E1B18] shadow-overworld space-y-3.5 relative overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1.5 max-w-xl">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-[#D9822B] text-white text-[10px] sm:text-xs font-bold uppercase font-pixel tracking-wider">
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                    <span>AWS Campus Leader Program</span>
+                  </div>
+                  <h3 className="font-bold text-base sm:text-lg text-[#1E1B18] font-display">
+                    Join AWS Student Builder Center · Become a Campus Leader
+                  </h3>
+                  <p className="text-xs text-[#1E1B18]/75 leading-relaxed">
+                    A project undertaken by <strong className="text-[#D9822B]">Team Udbhav by Archit Sharma</strong>. Apply to win official AWS swags & goodies, lead student cloud workshops, receive free AWS cloud money ($ credits), and earn 100% free certification exam vouchers!
+                  </p>
+                </div>
+                <button
+                  onClick={() => onOpenAwsModal ? onOpenAwsModal() : setInternalAwsModalOpen(true)}
+                  className="px-4 py-2.5 text-xs font-bold text-white bg-[#D9822B] hover:bg-[#C07224] rounded-xl border-2 border-[#1E1B18] shadow-overworld shrink-0 whitespace-nowrap flex items-center justify-center gap-1.5 transition-all active:translate-x-0.5 active:translate-y-0.5"
+                >
+                  <Gift className="w-4 h-4" />
+                  <span>Apply for Leader & Swags</span>
+                </button>
+              </div>
+            </div>
+
+            {/* First Placement Assessment & Diagnostics Card */}
+            <div className="bg-[#FAF6EE] rounded-2xl p-6 border-2 border-[#1E1B18] shadow-overworld space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Award className="w-4 h-4 text-[#D9822B]" />
+                  <h3 className="text-xs font-pixel text-[#1E1B18] uppercase tracking-wider">
+                    Diagnostic Assessment & Readiness Fit
+                  </h3>
+                </div>
+                <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-md bg-[#2D6A4F]/10 text-[#2D6A4F] border border-[#2D6A4F]/20">
+                  Readiness: {effectiveScore}%
+                </span>
+              </div>
+
+              {effectiveAssessment ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-[#F2EAD6] border border-[#1E1B18]/15">
+                      <span className="text-[10px] uppercase font-pixel text-[#1E1B18]/60 block">Recommended Track</span>
+                      <span className="font-bold text-[#1E1B18]">{effectiveAssessment.recommendedTrack || user?.specializationTrade || "AI / ML Engineer"}</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#F2EAD6] border border-[#1E1B18]/15">
+                      <span className="text-[10px] uppercase font-pixel text-[#1E1B18]/60 block">Trade Fit Index</span>
+                      <span className="font-bold text-[#2A6F97]">{effectiveAssessment.tradeFitIndex || effectiveScore}% Fit</span>
+                    </div>
+                  </div>
+
+                  {effectiveAssessment.primaryStrength && (
+                    <div className="text-xs p-3 rounded-xl bg-white border border-[#1E1B18]/15 space-y-1">
+                      <span className="font-bold text-[#2D6A4F] flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Evaluated Strength
+                      </span>
+                      <p className="text-[#1E1B18]/75 leading-relaxed">{effectiveAssessment.primaryStrength}</p>
+                    </div>
+                  )}
+
+                  {effectiveAssessment.criticalGap && (
+                    <div className="text-xs p-3 rounded-xl bg-white border border-[#1E1B18]/15 space-y-1">
+                      <span className="font-bold text-[#BA3B46] flex items-center gap-1">
+                        <Target className="w-3.5 h-3.5" /> Recommended Priority Area
+                      </span>
+                      <p className="text-[#1E1B18]/75 leading-relaxed">{effectiveAssessment.criticalGap}</p>
+                    </div>
+                  )}
+
+                  {effectiveAssessment.placementAdvice && (
+                    <p className="text-[11px] text-[#1E1B18]/65 italic">
+                      Placement Advice: "{effectiveAssessment.placementAdvice}"
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-[#F2EAD6] border border-[#1E1B18]/15 text-xs text-center space-y-2">
+                  <p className="text-[#1E1B18]/70">Take the foundational diagnostic to unlock calibrated skill benchmarks and personalized placement advice.</p>
+                  <button 
+                    onClick={() => onNavigateToTab("report")}
+                    className="px-3.5 py-1.5 rounded-lg bg-[#1E1B18] text-white text-xs font-bold font-pixel"
+                  >
+                    Take Diagnostic Test
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Latest AI Mock Technical Interview Card */}
+            <div className="bg-[#FAF6EE] rounded-2xl p-6 border-2 border-[#1E1B18] shadow-overworld space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mic className="w-4 h-4 text-[#2A6F97]" />
+                  <h3 className="text-xs font-pixel text-[#1E1B18] uppercase tracking-wider">
+                    Latest AI Voice Screening & Recruiter Scorecard
+                  </h3>
+                </div>
+                <button
+                  onClick={() => onNavigateToTab("interview")}
+                  className="text-[11px] font-pixel text-[#2A6F97] hover:underline font-bold"
+                >
+                  Practice Interview →
+                </button>
+              </div>
+
+              {effectiveInterview ? (
+                <div className="space-y-3 text-xs">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-[#1E1B18]/15">
+                    <div>
+                      <span className="text-[10px] uppercase font-pixel text-[#1E1B18]/60 block">Hiring Verdict</span>
+                      <span className="font-bold text-sm text-[#1E1B18]">{effectiveInterview.hiringVerdict || effectiveInterview.verdict || "Interview Completed"}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-pixel text-[#1E1B18]/60 block">Overall Score</span>
+                      <span className="font-bold text-base font-mono text-[#2D6A4F]">{effectiveInterview.score ? `${effectiveInterview.score}/100` : "Evaluated"}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-2.5 rounded-lg bg-[#F2EAD6] border border-[#1E1B18]/10">
+                      <span className="text-[10px] uppercase font-pixel text-[#1E1B18]/60 block">Technical Rating</span>
+                      <span className="font-semibold text-[#1E1B18]">{effectiveInterview.technicalRating || "Strong Fundamentals"}</span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-[#F2EAD6] border border-[#1E1B18]/10">
+                      <span className="text-[10px] uppercase font-pixel text-[#1E1B18]/60 block">Communication</span>
+                      <span className="font-semibold text-[#1E1B18]">{effectiveInterview.communicationRating || effectiveInterview.communicationScore || "Clear & Structured"}</span>
+                    </div>
+                  </div>
+
+                  {effectiveInterview.strengths && (
+                    <div className="p-3 rounded-xl bg-white border border-[#1E1B18]/15 space-y-1">
+                      <span className="font-bold text-[#2D6A4F] block">Candidate Strengths</span>
+                      <p className="text-[#1E1B18]/75 leading-relaxed">{effectiveInterview.strengths}</p>
+                    </div>
+                  )}
+
+                  {effectiveInterview.weaknesses && (
+                    <div className="p-3 rounded-xl bg-white border border-[#1E1B18]/15 space-y-1">
+                      <span className="font-bold text-[#D9822B] block">Improvement Opportunities</span>
+                      <p className="text-[#1E1B18]/75 leading-relaxed">{effectiveInterview.weaknesses}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-[#F2EAD6] border border-[#1E1B18]/15 text-xs text-center space-y-2">
+                  <p className="text-[#1E1B18]/70">No mock interview recorded yet. Complete a technical voice screening session with our AI Bar Raiser.</p>
+                  <button 
+                    onClick={() => onNavigateToTab("interview")}
+                    className="px-3.5 py-1.5 rounded-lg bg-[#2A6F97] text-white text-xs font-bold font-pixel"
+                  >
+                    Start AI Mock Interview
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Quick Actions */}
@@ -1213,6 +1421,16 @@ export default function StudentProfile({ user, onUpdateUser, onNavigateToTab }: 
           </div>
         </div>
       )}
+
+      {/* AWS Student Builder Campus Leader Modal */}
+      <AwsStudentBuilderModal
+        isOpen={internalAwsModalOpen}
+        onClose={() => setInternalAwsModalOpen(false)}
+        initialName={formData.name}
+        initialEmail={user?.email || ""}
+        initialCollege={formData.college}
+        initialDegree={formData.degree}
+      />
     </div>
   );
 }

@@ -65,34 +65,70 @@ CREATE TABLE IF NOT EXISTS public.interview_sessions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Row Level Security (RLS) Setup
+-- 6. AWS Student Builder Campus Leader Applications (Team Udbhav by Archit Sharma)
+CREATE TABLE IF NOT EXISTS public.aws_applications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    app_id TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    college TEXT NOT NULL,
+    degree TEXT,
+    graduation_year TEXT,
+    github_or_linkedin TEXT,
+    preferred_track TEXT,
+    prior_experience TEXT,
+    leadership_reason TEXT,
+    initiative TEXT DEFAULT 'AWS Student Builder Campus Leader',
+    project_credit TEXT DEFAULT 'Team Udbhav by Archit Sharma',
+    status TEXT DEFAULT 'under_review',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. Row Level Security (RLS) Setup
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.assessments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_milestones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.interview_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.aws_applications ENABLE ROW LEVEL SECURITY;
 
 -- Clean existing policies if re-running
 DROP POLICY IF EXISTS "Public profiles can be viewed and edited by owner" ON public.profiles;
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Profiles can be inserted or updated" ON public.profiles;
 DROP POLICY IF EXISTS "Courses are readable by all authenticated and anonymous users" ON public.courses;
 DROP POLICY IF EXISTS "Assessments are accessible only by owner" ON public.assessments;
+DROP POLICY IF EXISTS "Assessments are readable and editable" ON public.assessments;
 DROP POLICY IF EXISTS "Milestones are accessible only by owner" ON public.user_milestones;
 DROP POLICY IF EXISTS "Interview sessions are accessible only by owner" ON public.interview_sessions;
+DROP POLICY IF EXISTS "Interview sessions are accessible" ON public.interview_sessions;
+DROP POLICY IF EXISTS "AWS applications can be inserted by anyone" ON public.aws_applications;
+DROP POLICY IF EXISTS "AWS applications are viewable by submitter" ON public.aws_applications;
 
-CREATE POLICY "Public profiles can be viewed and edited by owner"
-    ON public.profiles FOR ALL USING (auth.uid() = id);
+-- Public profiles are viewable by everyone (for public portfolio /p/[username])
+CREATE POLICY "Public profiles are viewable by everyone"
+    ON public.profiles FOR SELECT USING (true);
+
+CREATE POLICY "Profiles can be inserted or updated"
+    ON public.profiles FOR ALL USING (true) WITH CHECK (true);
 
 CREATE POLICY "Courses are readable by all authenticated and anonymous users"
     ON public.courses FOR SELECT USING (true);
 
-CREATE POLICY "Assessments are accessible only by owner"
-    ON public.assessments FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Assessments are readable and editable"
+    ON public.assessments FOR ALL USING (true) WITH CHECK (true);
 
 CREATE POLICY "Milestones are accessible only by owner"
-    ON public.user_milestones FOR ALL USING (auth.uid() = user_id);
+    ON public.user_milestones FOR ALL USING (true);
 
-CREATE POLICY "Interview sessions are accessible only by owner"
-    ON public.interview_sessions FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Interview sessions are accessible"
+    ON public.interview_sessions FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "AWS applications can be inserted by anyone"
+    ON public.aws_applications FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "AWS applications are viewable by submitter"
+    ON public.aws_applications FOR SELECT USING (true);
 
 -- ==========================================================
 -- SEED DATA: Verified Engineering Tracks & Courses

@@ -58,7 +58,8 @@ import {
   Cloud,
   Mic,
   MicOff,
-  Radio
+  Radio,
+  Gift
 } from "lucide-react";
 
 import { 
@@ -92,6 +93,7 @@ import { CERTIFIED_COURSES, CertifiedCourse, getRecommendedCoursesForTrade } fro
 import { CODING_CHALLENGES, CodingChallenge } from "@/lib/coding-challenges";
 import ResumeBuilder from "@/components/ResumeBuilder";
 import StudentProfile from "@/components/StudentProfile";
+import AwsStudentBuilderModal from "@/components/AwsStudentBuilderModal";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { 
   signInWithGooglePopup, 
@@ -105,7 +107,9 @@ import {
   signInWithSupabase,
   saveProfileToSupabase,
   fetchCoursesFromSupabase,
-  saveInterviewSessionToSupabase
+  saveInterviewSessionToSupabase,
+  saveCompleteUserSession,
+  loadCompleteUserSession
 } from "@/lib/supabase/client";
 
 export type AppView = "report" | "companies" | "roadmap" | "coding" | "interview" | "certifications" | "resume" | "cautions" | "profile";
@@ -289,8 +293,14 @@ export default function CareerCompassApp() {
   // Export Placement Report Notice
   const [exportNotice, setExportNotice] = useState<string | null>(null);
 
+  // AWS Student Builder Modal, Real ATS Score & Expandable Company Cards
+  const [isAwsModalOpen, setIsAwsModalOpen] = useState<boolean>(false);
+  const [realAtsScore, setRealAtsScore] = useState<number | null>(null);
+  const [expandedCompanyId, setExpandedCompanyId] = useState<string | null>(null);
+  const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
+
   // =========================================================================
-  // REHYDRATE STATE ON MOUNT
+  // REHYDRATE STATE ON MOUNT (DATABASE & LOCAL PERSISTENCE)
   // =========================================================================
   useEffect(() => {
     try {
@@ -318,12 +328,58 @@ export default function CareerCompassApp() {
           setSelectedRole(roleMatch);
           setMilestones(ROLE_MILESTONES[roleMatch.id] || ROLE_MILESTONES["ai-ml-engineer"]);
           setInterviewTurns([{ speaker: "ai", text: getInitialInterviewQuestion(roleMatch.id) }]);
+
+          // Load latest complete session from Supabase in background
+          loadCompleteUserSession(parsed.email || parsed.id).then(res => {
+            if (res.assessment?.overall_score) {
+              setReadinessScore(res.assessment.overall_score);
+            }
+            if (res.interview?.feedback_report) {
+              setCandidateScorecard(res.interview.feedback_report);
+            }
+          }).catch(() => {});
         }
       }
+
       const savedScore = localStorage.getItem("careercompass_score");
       if (savedScore) {
         setReadinessScore(parseInt(savedScore, 10));
       }
+
+      const savedTradeFit = localStorage.getItem("careercompass_trade_fit");
+      if (savedTradeFit) {
+        try {
+          setTradeFitAnalysis(JSON.parse(savedTradeFit));
+        } catch {}
+      }
+
+      const savedInterview = localStorage.getItem("careercompass_latest_interview");
+      if (savedInterview) {
+        try {
+          setCandidateScorecard(JSON.parse(savedInterview));
+        } catch {}
+      }
+
+      const savedTurns = localStorage.getItem("careercompass_interview_turns");
+      if (savedTurns) {
+        try {
+          const parsedTurns = JSON.parse(savedTurns);
+          if (Array.isArray(parsedTurns) && parsedTurns.length > 0) {
+            setInterviewTurns(parsedTurns);
+          }
+        } catch {}
+      }
+
+      const savedResumeAts = localStorage.getItem("careercompass_resume_ats");
+      if (savedResumeAts) {
+        try {
+          const parsed = JSON.parse(savedResumeAts);
+          if (typeof parsed.atsScore === "number") {
+            setRealAtsScore(parsed.atsScore);
+          }
+        } catch {}
+      }
+
       const savedSkills = localStorage.getItem("careercompass_skills");
       if (savedSkills) {
         try {
@@ -693,15 +749,27 @@ export default function CareerCompassApp() {
       try {
         localStorage.setItem("careercompass_user", JSON.stringify(baseUser));
         localStorage.setItem("careercompass_score", String(finalScore));
+        localStorage.setItem("careercompass_trade_fit", JSON.stringify({
+          tradeFitIndex: finalTradeFit,
+          recommendedTrack: selectedTrade.title,
+          primaryStrength: finalStrength,
+          criticalGap: finalGap,
+          placementAdvice: finalAdvice
+        }));
         if (finalSkills) {
           localStorage.setItem("careercompass_skills", JSON.stringify(finalSkills));
         }
-        saveProfileToSupabase({
-          userId: baseUser.id,
-          name: baseUser.name,
-          targetRole: matchedRole.title,
-          experienceLevel: selectedSemester,
-          readinessScore: finalScore
+        saveCompleteUserSession({
+          user: baseUser,
+          score: finalScore,
+          tradeFit: {
+            tradeFitIndex: finalTradeFit,
+            recommendedTrack: selectedTrade.title,
+            primaryStrength: finalStrength,
+            criticalGap: finalGap,
+            placementAdvice: finalAdvice
+          },
+          skillMatrix: finalSkills
         });
       } catch {}
 
@@ -728,13 +796,14 @@ export default function CareerCompassApp() {
     const baseSkills = TRADE_SKILL_MATRICES[selectedTrade.id] || TRADE_SKILL_MATRICES["ai-ml-engineer"] || [];
     setDynamicSkillMatrix(baseSkills);
 
-    setTradeFitAnalysis({
+    const quickTradeFit = {
       tradeFitIndex: 85,
       recommendedTrack: selectedTrade.title,
       primaryStrength: `Strong foundational orientation in ${selectedTrade.title}.`,
       criticalGap: "Complete Week 1 milestone projects and conduct initial mock interview.",
       placementAdvice: `Follow the calibrated 12-week ${selectedTrade.title} curriculum.`
-    });
+    };
+    setTradeFitAnalysis(quickTradeFit);
 
     setInterviewTurns([
       {
@@ -745,8 +814,8 @@ export default function CareerCompassApp() {
 
     const baseUser: UserProfile = {
       id: currentUser?.id || "usr_" + Math.random().toString(36).substring(2, 9),
-      name: candidateName.trim() || authName.trim() || (currentUser?.name || "Alex Rivera"),
-      username: (candidateName.trim() || authName.trim() || (currentUser?.name || "alex_rivera")).toLowerCase().replace(/[^a-z0-9]/g, "_"),
+      name: candidateName.trim() || authName.trim() || (currentUser?.name || "Candidate"),
+      username: (candidateName.trim() || authName.trim() || (currentUser?.name || "candidate")).toLowerCase().replace(/[^a-z0-9]/g, "_"),
       college: candidateCollege.trim() || (currentUser?.college || "School of Computing & Engineering"),
       email: authEmail.trim() || (currentUser?.email || "candidate@college.edu"),
       degree: selectedDegree,
@@ -769,12 +838,12 @@ export default function CareerCompassApp() {
       localStorage.setItem("careercompass_user", JSON.stringify(baseUser));
       localStorage.setItem("careercompass_score", String(baseScore));
       localStorage.setItem("careercompass_skills", JSON.stringify(baseSkills));
-      saveProfileToSupabase({
-        userId: baseUser.id,
-        name: baseUser.name,
-        targetRole: matchedRole.title,
-        experienceLevel: selectedSemester,
-        readinessScore: baseScore
+      localStorage.setItem("careercompass_trade_fit", JSON.stringify(quickTradeFit));
+      saveCompleteUserSession({
+        user: baseUser,
+        score: baseScore,
+        tradeFit: quickTradeFit,
+        skillMatrix: baseSkills
       });
     } catch {}
 
@@ -1220,6 +1289,10 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           communicationScore: "Clear and structured response."
         };
         setCandidateScorecard(scorecard);
+        try {
+          localStorage.setItem("careercompass_latest_interview", JSON.stringify(scorecard));
+          localStorage.setItem("careercompass_interview_turns", JSON.stringify(updatedTurns));
+        } catch {}
 
         if (currentUser) {
           saveInterviewSessionToSupabase({
@@ -1258,6 +1331,10 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             communicationScore: "Professional technical dialogue."
           };
           setCandidateScorecard(fallbackScorecard);
+          try {
+            localStorage.setItem("careercompass_latest_interview", JSON.stringify(fallbackScorecard));
+            localStorage.setItem("careercompass_interview_turns", JSON.stringify(updatedTurns));
+          } catch {}
           if (currentUser) {
             saveInterviewSessionToSupabase({
               userId: currentUser.id,
@@ -2329,9 +2406,9 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               <div 
                 onClick={(e) => {
                   e.stopPropagation();
-                  setAppView("certifications");
+                  setIsAwsModalOpen(true);
                 }}
-                title="AWS Student Builder Campus Leader Initiative - Click to view AWS credentials"
+                title="AWS Student Builder Campus Leader Initiative - Click to apply and win swags!"
                 className="hidden xl:inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-[#1E1B18] text-[10px] font-bold hover:shadow-[3px_3px_0px_#1E1B18] hover:-translate-y-0.5 transition-all cursor-pointer">
                 <span className="uiverse-radar-beacon w-2.5 h-2.5 rounded-full bg-[#D9822B] text-[#D9822B]"></span>
                 <span>AWS Student Builder</span>
@@ -2344,14 +2421,14 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           <nav className="hidden lg:flex items-center space-x-1.5 text-xs font-bold overflow-x-auto no-scrollbar py-0.5">
             {([
                 { id: "report", label: "Dashboard", fullLabel: "Candidate Report", icon: BarChart3, enabled: FEATURE_FLAGS.showReport },
-                { id: "companies", label: "Companies", fullLabel: "Target Companies", icon: Building2, enabled: FEATURE_FLAGS.showCompanies },
                 { id: "roadmap", label: "Roadmap", fullLabel: "12-Wk Roadmap", icon: Layers, enabled: FEATURE_FLAGS.showRoadmap },
-                { id: "coding", label: "Coding", fullLabel: "Mock Coding Test", icon: Terminal, enabled: FEATURE_FLAGS.showCodingWorkbench },
+                { id: "resume", label: "Resume", fullLabel: "Draftline Resume Builder", icon: FileText, enabled: FEATURE_FLAGS.showResume },
                 { id: "interview", label: "AI Voice", fullLabel: "Mock Interview", icon: Users, enabled: FEATURE_FLAGS.showMockInterview },
-                { id: "certifications", label: "Certifications", fullLabel: "Free Certifications", icon: Award, enabled: FEATURE_FLAGS.showCertifications },
-                { id: "resume", label: "AI Resume", fullLabel: "Draftline Resume Builder", icon: FileText, enabled: FEATURE_FLAGS.showResume },
+                { id: "companies", label: "Companies", fullLabel: "Target Companies", icon: Building2, enabled: FEATURE_FLAGS.showCompanies },
+                { id: "certifications", label: "Certification", fullLabel: "Free Certifications", icon: Award, enabled: FEATURE_FLAGS.showCertifications },
+                { id: "coding", label: "Coding", fullLabel: "Mock Coding Test", icon: Terminal, enabled: FEATURE_FLAGS.showCodingWorkbench },
                 { id: "cautions", label: "Safety", fullLabel: "Job Cautions", icon: ShieldAlert, enabled: FEATURE_FLAGS.showJobCautions },
-                { id: "profile", label: "Profile", fullLabel: "Student Profile", icon: User, enabled: FEATURE_FLAGS.showProfile }
+                { id: "profile", label: "Portfolio", fullLabel: "Candidate Portfolio", icon: User, enabled: FEATURE_FLAGS.showProfile }
               ] as const).filter(tab => tab.enabled).map(tab => (
               <button
                 key={tab.id}
@@ -2394,7 +2471,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               <div className="w-5 h-5 rounded bg-[#2D6A4F] text-white flex items-center justify-center font-bold text-[10px]">
                 {currentUser?.name ? currentUser.name[0].toUpperCase() : "U"}
               </div>
-              <span className="hidden md:inline max-w-[100px] truncate">{currentUser?.name || "Profile"}</span>
+              <span className="hidden md:inline max-w-[100px] truncate">{currentUser?.name || "Portfolio"}</span>
             </button>
 
             <button 
@@ -2411,14 +2488,14 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
       <div className="lg:hidden border-b-2 border-hairline-dark bg-paper/95 backdrop-blur-md sticky top-[53px] z-40 px-3 py-2 overflow-x-auto no-scrollbar flex items-center space-x-2 shadow-sm">
         {([
             { id: "report", label: "Dashboard", icon: BarChart3, enabled: FEATURE_FLAGS.showReport },
-            { id: "companies", label: "Companies", icon: Building2, enabled: FEATURE_FLAGS.showCompanies },
             { id: "roadmap", label: "Roadmap", icon: Layers, enabled: FEATURE_FLAGS.showRoadmap },
-            { id: "coding", label: "Coding", icon: Terminal, enabled: FEATURE_FLAGS.showCodingWorkbench },
+            { id: "resume", label: "Resume", icon: FileText, enabled: FEATURE_FLAGS.showResume },
             { id: "interview", label: "AI Voice", icon: Users, enabled: FEATURE_FLAGS.showMockInterview },
-            { id: "certifications", label: "Certifications", icon: Award, enabled: FEATURE_FLAGS.showCertifications },
-            { id: "resume", label: "AI Resume", icon: FileText, enabled: FEATURE_FLAGS.showResume },
+            { id: "companies", label: "Companies", icon: Building2, enabled: FEATURE_FLAGS.showCompanies },
+            { id: "certifications", label: "Certification", icon: Award, enabled: FEATURE_FLAGS.showCertifications },
+            { id: "coding", label: "Coding", icon: Terminal, enabled: FEATURE_FLAGS.showCodingWorkbench },
             { id: "cautions", label: "Safety", icon: ShieldAlert, enabled: FEATURE_FLAGS.showJobCautions },
-            { id: "profile", label: "Profile", icon: User, enabled: FEATURE_FLAGS.showProfile }
+            { id: "profile", label: "Portfolio", icon: User, enabled: FEATURE_FLAGS.showProfile }
           ] as const).filter(tab => tab.enabled).map(tab => (
           <button
             key={tab.id}
@@ -2447,79 +2524,156 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         {appView === "report" && (
           <div className="space-y-8">
             
-            {/* Commercial Placement Readiness Guided Checklist */}
-            <div className="bg-[#FAF8F3] rounded-2xl border-2 border-[#1E1B18] shadow-overworld p-5 sm:p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1E1B18]/10 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#2D6A4F] text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                    ✓
-                  </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-[#1E1B18] font-display">Placement Readiness Quick-Guide</h3>
-                    <p className="text-[11px] text-[#1E1B18]/60">Follow this 4-step action plan to maximize placement offers</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-mono font-bold text-[#2D6A4F] bg-[#2D6A4F]/10 px-2.5 py-1 rounded-full border border-[#2D6A4F]/20">
-                    Step 1 Complete
-                  </span>
-                </div>
-              </div>
+            {/* Real Dynamic Placement Readiness Guided Checklist */}
+            {(() => {
+              const isStep1Done = Boolean(currentUser?.name && (currentUser?.college || currentUser?.specializationTrade || currentUser?.targetRole));
+              const isStep2Done = realAtsScore !== null;
+              const isStep3Done = Boolean(candidateScorecard !== null || interviewTurns.length > 2);
+              const completedMilestonesCount = Object.values(completedSyllabusItems).filter(Boolean).length;
+              const isStep4Done = completedMilestonesCount > 0;
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                {/* Step 1 */}
-                <div 
-                  onClick={() => { setAppView("profile"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  className="p-4 rounded-xl border-2 border-[#2D6A4F] bg-[#2D6A4F]/5 cursor-pointer hover:bg-[#2D6A4F]/10 transition-all space-y-1.5 shadow-xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-bold text-[#2D6A4F] uppercase">Step 1 · Verified</span>
-                    <CheckCircle2 className="w-4 h-4 text-[#2D6A4F]" />
-                  </div>
-                  <h4 className="font-bold text-[#1E1B18]">Candidate Portfolio</h4>
-                  <p className="text-[11px] text-[#1E1B18]/65 leading-tight">Identity, verified skills & AWS badge active.</p>
-                </div>
+              const completedStepsCount = (isStep1Done ? 1 : 0) + (isStep2Done ? 1 : 0) + (isStep3Done ? 1 : 0) + (isStep4Done ? 1 : 0);
+              const progressPercent = Math.round((completedStepsCount / 4) * 100);
 
-                {/* Step 2 */}
-                <div 
-                  onClick={() => { setAppView("resume"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  className="p-4 rounded-xl border-2 border-[#1E1B18] bg-white cursor-pointer hover:border-[#D9822B] hover:shadow-sm transition-all space-y-1.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-bold text-[#D9822B] uppercase">Step 2 · Action Required</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#D9822B]" />
+              return (
+                <div className="bg-[#FAF8F3] rounded-2xl border-2 border-[#1E1B18] shadow-overworld p-5 sm:p-6 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1E1B18]/10 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-xl text-white flex items-center justify-center font-bold text-xs shadow-xs ${
+                        completedStepsCount === 4 ? "bg-[#2D6A4F]" : "bg-[#D9822B]"
+                      }`}>
+                        {completedStepsCount === 4 ? "✓" : `${completedStepsCount}/4`}
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-bold text-[#1E1B18] font-display">
+                          Placement Readiness Quick-Guide
+                        </h3>
+                        <p className="text-[11px] text-[#1E1B18]/60">
+                          Real-time progression tracking candidate portfolio, ATS audit, interview screening, and roadmap
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-full border ${
+                        completedStepsCount === 4 
+                          ? "text-[#2D6A4F] bg-[#2D6A4F]/10 border-[#2D6A4F]/20" 
+                          : "text-[#D9822B] bg-[#D9822B]/10 border-[#D9822B]/20"
+                      }`}>
+                        {completedStepsCount} of 4 Complete ({progressPercent}%)
+                      </span>
+                    </div>
                   </div>
-                  <h4 className="font-bold text-[#1E1B18]">Audit Resume for ATS</h4>
-                  <p className="text-[11px] text-[#1E1B18]/65 leading-tight">Run keyword match & Google X-Y-Z check.</p>
-                </div>
 
-                {/* Step 3 */}
-                <div 
-                  onClick={() => { setAppView("interview"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  className="p-4 rounded-xl border-2 border-[#1E1B18] bg-white cursor-pointer hover:border-[#2A6F97] hover:shadow-sm transition-all space-y-1.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-bold text-[#2A6F97] uppercase">Step 3 · Practice</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#2A6F97]" />
+                  {/* Progress Bar */}
+                  <div className="w-full bg-[#EAE0CA] h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-[#D9822B] to-[#2D6A4F] transition-all duration-500 rounded-full" 
+                      style={{ width: `${progressPercent}%` }}
+                    />
                   </div>
-                  <h4 className="font-bold text-[#1E1B18]">Technical Voice Screening</h4>
-                  <p className="text-[11px] text-[#1E1B18]/65 leading-tight">Practice screening with AI Bar Raiser.</p>
-                </div>
 
-                {/* Step 4 */}
-                <div 
-                  onClick={() => { setAppView("roadmap"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  className="p-4 rounded-xl border-2 border-[#1E1B18] bg-white cursor-pointer hover:border-[#1E1B18] hover:shadow-sm transition-all space-y-1.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-bold text-[#1E1B18] uppercase">Step 4 · 12-Week Track</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#1E1B18]" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    {/* Step 1: Portfolio */}
+                    <div 
+                      onClick={() => { setAppView("profile"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className={`p-4 rounded-xl border-2 transition-all space-y-1.5 shadow-xs cursor-pointer ${
+                        isStep1Done 
+                          ? "border-[#2D6A4F] bg-[#2D6A4F]/5 hover:bg-[#2D6A4F]/10" 
+                          : "border-[#1E1B18] bg-white hover:border-[#2D6A4F]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`font-mono text-[10px] font-bold uppercase ${
+                          isStep1Done ? "text-[#2D6A4F]" : "text-[#1E1B18]/60"
+                        }`}>
+                          {isStep1Done ? "Step 1 · Verified" : "Step 1 · Setup Profile"}
+                        </span>
+                        {isStep1Done ? <CheckCircle2 className="w-4 h-4 text-[#2D6A4F]" /> : <ArrowRight className="w-3.5 h-3.5 text-[#1E1B18]/50" />}
+                      </div>
+                      <h4 className="font-bold text-[#1E1B18]">Candidate Portfolio</h4>
+                      <p className="text-[11px] text-[#1E1B18]/65 leading-tight">
+                        {isStep1Done 
+                          ? `${currentUser?.name ? currentUser.name.split(" ")[0] : "Candidate"}'s portfolio active with verified skills.` 
+                          : "Setup your target role, degree & developer skills."}
+                      </p>
+                    </div>
+
+                    {/* Step 2: Resume */}
+                    <div 
+                      onClick={() => { setAppView("resume"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className={`p-4 rounded-xl border-2 transition-all space-y-1.5 shadow-xs cursor-pointer ${
+                        isStep2Done 
+                          ? "border-[#2D6A4F] bg-[#2D6A4F]/5 hover:bg-[#2D6A4F]/10" 
+                          : "border-[#1E1B18] bg-white hover:border-[#D9822B]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`font-mono text-[10px] font-bold uppercase ${
+                          isStep2Done ? "text-[#2D6A4F]" : "text-[#D9822B]"
+                        }`}>
+                          {isStep2Done ? `Step 2 · Score: ${realAtsScore}%` : "Step 2 · Action Required"}
+                        </span>
+                        {isStep2Done ? <CheckCircle2 className="w-4 h-4 text-[#2D6A4F]" /> : <ArrowRight className="w-3.5 h-3.5 text-[#D9822B]" />}
+                      </div>
+                      <h4 className="font-bold text-[#1E1B18]">Audit Resume for ATS</h4>
+                      <p className="text-[11px] text-[#1E1B18]/65 leading-tight">
+                        {isStep2Done ? "Resume audited against target tech stack." : "Run keyword match & Google X-Y-Z check."}
+                      </p>
+                    </div>
+
+                    {/* Step 3: Mock Interview */}
+                    <div 
+                      onClick={() => { setAppView("interview"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className={`p-4 rounded-xl border-2 transition-all space-y-1.5 shadow-xs cursor-pointer ${
+                        isStep3Done 
+                          ? "border-[#2D6A4F] bg-[#2D6A4F]/5 hover:bg-[#2D6A4F]/10" 
+                          : "border-[#1E1B18] bg-white hover:border-[#2A6F97]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`font-mono text-[10px] font-bold uppercase ${
+                          isStep3Done ? "text-[#2D6A4F]" : "text-[#2A6F97]"
+                        }`}>
+                          {isStep3Done 
+                            ? `Step 3 · Verified (${candidateScorecard?.score ? `${candidateScorecard.score}/100` : "Complete"})` 
+                            : "Step 3 · Practice"}
+                        </span>
+                        {isStep3Done ? <CheckCircle2 className="w-4 h-4 text-[#2D6A4F]" /> : <ArrowRight className="w-3.5 h-3.5 text-[#2A6F97]" />}
+                      </div>
+                      <h4 className="font-bold text-[#1E1B18]">Technical Voice Screening</h4>
+                      <p className="text-[11px] text-[#1E1B18]/65 leading-tight">
+                        {isStep3Done 
+                          ? `Verdict: ${candidateScorecard?.hiringVerdict || candidateScorecard?.verdict || "Completed"}` 
+                          : "Practice spoken answers with AI Bar Raiser."}
+                      </p>
+                    </div>
+
+                    {/* Step 4: 12-Week Roadmap */}
+                    <div 
+                      onClick={() => { setAppView("roadmap"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                      className={`p-4 rounded-xl border-2 transition-all space-y-1.5 shadow-xs cursor-pointer ${
+                        isStep4Done 
+                          ? "border-[#2D6A4F] bg-[#2D6A4F]/5 hover:bg-[#2D6A4F]/10" 
+                          : "border-[#1E1B18] bg-white hover:border-[#1E1B18]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`font-mono text-[10px] font-bold uppercase ${
+                          isStep4Done ? "text-[#2D6A4F]" : "text-[#1E1B18]"
+                        }`}>
+                          {isStep4Done ? `Step 4 · Active (${completedMilestonesCount} Done)` : "Step 4 · 12-Week Track"}
+                        </span>
+                        {isStep4Done ? <CheckCircle2 className="w-4 h-4 text-[#2D6A4F]" /> : <ArrowRight className="w-3.5 h-3.5 text-[#1E1B18]" />}
+                      </div>
+                      <h4 className="font-bold text-[#1E1B18]">Unlock 12-Week Roadmap</h4>
+                      <p className="text-[11px] text-[#1E1B18]/65 leading-tight">
+                        {isStep4Done ? "Milestone pacing active in Phase 1." : "Review Phase 1 core theory & project goals."}
+                      </p>
+                    </div>
                   </div>
-                  <h4 className="font-bold text-[#1E1B18]">Unlock 12-Week Roadmap</h4>
-                  <p className="text-[11px] text-[#1E1B18]/65 leading-tight">Review Phase 1 core theory & project goals.</p>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
 
             <div className="border-b border-hairline pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
@@ -2909,11 +3063,11 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                   return (
                     <div 
                       key={company.id}
-                      className="bg-[#FAF6EE] rounded-xl border-2 border-[#1E1B18] p-5 shadow-overworld flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                      className="bg-[#FAF6EE] rounded-xl border-2 border-[#1E1B18] p-5 shadow-overworld flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all space-y-3.5"
                     >
                       <div>
                         {/* Card Top: Logo, Name, Tier, Package */}
-                        <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-start justify-between gap-3 mb-2.5">
                           <div className="flex items-center space-x-3">
                             <div 
                               className="w-10 h-10 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] flex items-center justify-center text-white font-pixel font-bold text-sm shrink-0"
@@ -2924,7 +3078,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                             <div>
                               <div className="flex items-center space-x-2">
                                 <h3 className="font-pixel font-bold text-base text-[#1E1B18]">{company.name}</h3>
-                                <span className="text-[11px] px-2 py-0.5 rounded bg-[#F2EAD6] text-[#1E1B18] border-2 border-[#1E1B18] font-pixel font-bold">
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-[#F2EAD6] text-[#1E1B18] border border-[#1E1B18]/30 font-pixel font-bold">
                                   {company.tier}
                                 </span>
                               </div>
@@ -2940,63 +3094,67 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                         </div>
 
                         {/* Eligibility Status Banner */}
-                        <div className={`p-3 rounded-lg text-xs mb-3.5 border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] ${
+                        <div className={`p-2.5 rounded-lg text-xs mb-3 border border-[#1E1B18]/30 ${
                           isDirect 
-                            ? "bg-[#2D6A4F]/15 text-[#1E1B18]" 
+                            ? "bg-[#2D6A4F]/10 text-[#1E1B18]" 
                             : isReadySoon 
-                            ? "bg-[#D9822B]/15 text-[#1E1B18]" 
+                            ? "bg-[#D9822B]/10 text-[#1E1B18]" 
                             : "bg-[#F2EAD6] text-[#685F53]"
                         }`}>
-                          <div className="flex items-center space-x-1.5 font-bold mb-0.5 font-pixel">
-                            {isDirect && <CheckCircle2 className="w-3.5 h-3.5 text-[#2D6A4F] shrink-0" />}
-                            {isReadySoon && <Clock className="w-3.5 h-3.5 text-[#D9822B] shrink-0" />}
-                            {!isDirect && !isReadySoon && <Target className="w-3.5 h-3.5 text-[#685F53] shrink-0" />}
-                            <span>{eligibility.status}</span>
-                            <span className="font-normal text-[11px] font-mono opacity-80">· Min {company.readinessThreshold}% Readiness & {company.minDsaProblems}+ DSA</span>
+                          <div className="flex items-center justify-between font-bold font-pixel">
+                            <span className="flex items-center gap-1.5">
+                              {isDirect && <CheckCircle2 className="w-3.5 h-3.5 text-[#2D6A4F] shrink-0" />}
+                              {isReadySoon && <Clock className="w-3.5 h-3.5 text-[#D9822B] shrink-0" />}
+                              {!isDirect && !isReadySoon && <Target className="w-3.5 h-3.5 text-[#685F53] shrink-0" />}
+                              <span>{eligibility.status}</span>
+                            </span>
+                            <span className="text-[10px] font-mono opacity-80">Min {company.readinessThreshold}% Req</span>
                           </div>
-                          <p className="text-xs leading-relaxed opacity-90 font-medium">{eligibility.reason}</p>
                         </div>
 
                         {/* Core Skills Required */}
-                        <div className="mb-3.5">
-                          <span className="text-[11px] font-pixel uppercase text-[#685F53] font-bold block mb-1.5">
-                            Core Technologies Tested
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {company.keySkills.map((sk, idx) => (
-                              <span key={idx} className="text-xs bg-[#F2EAD6] text-[#1E1B18] px-2 py-0.5 rounded border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] font-mono">
-                                {sk}
-                              </span>
-                            ))}
-                          </div>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {company.keySkills.slice(0, 4).map((sk, idx) => (
+                            <span key={idx} className="text-[11px] bg-[#F2EAD6] text-[#1E1B18] px-2 py-0.5 rounded border border-[#1E1B18]/20 font-mono">
+                              {sk}
+                            </span>
+                          ))}
                         </div>
 
-                        {/* Interview Rounds Checklist */}
-                        <div className="mb-4 bg-[#F2EAD6] rounded-lg p-3 border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18]">
-                          <span className="text-[11px] font-pixel uppercase text-[#685F53] font-bold block mb-1.5">
-                            Hiring Process Rounds
-                          </span>
-                          <ul className="space-y-1 text-xs font-mono">
-                            {company.interviewRounds.map((rnd, idx) => (
-                              <li key={idx} className="flex items-start space-x-2 text-xs">
-                                <span className="text-[#2D6A4F] font-bold shrink-0">{idx + 1}.</span>
-                                <span className="text-[#1E1B18] font-medium">{rnd}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        {/* Collapsible Interview Rounds Drawer */}
+                        {expandedCompanyId === company.id && (
+                          <div className="mt-2.5 bg-[#F2EAD6] rounded-lg p-3 border border-[#1E1B18]/20 space-y-1.5 animate-fadeIn">
+                            <span className="text-[10px] font-pixel uppercase text-[#685F53] font-bold block">
+                              Hiring Process ({company.interviewRounds.length} Rounds)
+                            </span>
+                            <ul className="space-y-1 text-xs font-mono">
+                              {company.interviewRounds.map((rnd, idx) => (
+                                <li key={idx} className="flex items-start space-x-1.5 text-[11px]">
+                                  <span className="text-[#2D6A4F] font-bold shrink-0">{idx + 1}.</span>
+                                  <span className="text-[#1E1B18] font-medium">{rnd}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
 
                       {/* Card Footer: Apply Link & Location */}
-                      <div className="pt-3 border-t-2 border-[#1E1B18]/15 flex items-center justify-between text-xs">
-                        <span className="text-[#685F53] font-mono text-xs">{company.location}</span>
+                      <div className="pt-3 border-t-2 border-[#1E1B18]/10 flex items-center justify-between text-xs">
+                        <button
+                          onClick={() => setExpandedCompanyId(expandedCompanyId === company.id ? null : company.id)}
+                          className="text-xs font-pixel text-[#1E1B18] hover:text-[#D9822B] font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>{expandedCompanyId === company.id ? "Hide Rounds" : "View Rounds"}</span>
+                          <ChevronRight className={`w-3 h-3 transition-transform ${expandedCompanyId === company.id ? "rotate-90" : ""}`} />
+                        </button>
                         <a
                           href={company.careersUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-3 py-1.5 rounded-lg bg-[#D9822B] text-white hover:bg-[#C07224] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-pixel font-bold text-xs flex items-center space-x-1.5 transition-all"
+                          className="px-3.5 py-1.5 rounded-lg bg-[#D9822B] text-white hover:bg-[#C07224] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-pixel font-bold text-xs flex items-center space-x-1.5 transition-all"
                         >
-                          <span>Apply via Careers</span>
+                          <span>Apply Portal</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
@@ -3070,47 +3228,64 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               <div className="rounded-xl border-2 border-[#1E1B18] bg-[#FAF6EE] shadow-overworld p-5 sm:p-6 relative overflow-hidden">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
                   <div className="space-y-2 max-w-2xl">
-                    <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-md bg-[#D9822B] text-white border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-xs font-pixel font-bold">
-                      <span className="w-2 h-2 rounded-xs bg-white animate-pulse"></span>
-                      <span>AWS Student Builder · Campus Leader Initiative</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-md bg-[#D9822B] text-white border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-xs font-pixel font-bold">
+                        <span className="w-2 h-2 rounded-xs bg-white animate-pulse"></span>
+                        <span>AWS Student Builder Center · Campus Leader Program</span>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#2D6A4F] text-white text-[11px] font-pixel font-bold border border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18]">
+                        ★ A project undertaken by Team Udbhav by Archit Sharma
+                      </span>
                     </div>
                     <h3 className="font-pixel text-xl sm:text-2xl font-bold text-[#1E1B18]">
-                      Accelerate Your Cloud Architecture Journey on AWS
+                      Become an Official Campus Group Leader & Win Exclusive AWS Goodies
                     </h3>
                     <p className="text-xs sm:text-sm text-[#685F53] leading-relaxed font-medium">
-                      As part of the AWS Student Builder program, access official zero-cost AWS cloud credentials including the <strong>AWS Certified Cloud Practitioner Essentials (CLF-C02)</strong> and the gamified <strong>AWS Cloud Quest 3D RPG</strong> with verifiable digital badges on Credly.
+                      Apply through CareerCompass AI to lead your college AWS cohort, earn free AWS cloud credits ($), unlock 100% free certification exam vouchers, and receive official AWS merchandise swag boxes.
                     </p>
                     <div className="flex flex-wrap gap-2 pt-1">
                       <span className="text-xs bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] px-2.5 py-1 rounded-md font-mono text-[#1E1B18]">
-                        ☁️ 100% Free AWS Skill Builder Access
+                        🎁 Win AWS Swags & Goodies
                       </span>
                       <span className="text-xs bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] px-2.5 py-1 rounded-md font-mono text-[#1E1B18]">
-                        🎮 Verifiable Credly Digital Badges
+                        👑 Official Campus Leader Status
                       </span>
                       <span className="text-xs bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] px-2.5 py-1 rounded-md font-mono text-[#1E1B18]">
-                        🎓 AWS Educate Student Learning Pathways
+                        💰 Free AWS Cloud Credits ($)
+                      </span>
+                      <span className="text-xs bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] px-2.5 py-1 rounded-md font-mono text-[#1E1B18]">
+                        🎟️ 100% Off Exam Vouchers & Courses
                       </span>
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
-                    <a
-                      href="https://explore.skillbuilder.aws/learn/course/external/view/elearning/134/aws-cloud-practitioner-essentials"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2.5 rounded-lg bg-[#D9822B] hover:bg-[#C07224] text-white border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none font-pixel font-bold text-xs flex items-center justify-center space-x-1.5 transition-all"
+                    <button
+                      onClick={() => setIsAwsModalOpen(true)}
+                      className="px-5 py-3 rounded-lg bg-[#D9822B] hover:bg-[#C07224] text-white border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none font-pixel font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer"
                     >
-                      <span>Launch AWS Skill Builder</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                    <a
-                      href="https://aws.amazon.com/training/digital/aws-cloud-quest/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2.5 rounded-lg bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none font-pixel font-bold text-xs flex items-center justify-center space-x-1.5 transition-all"
-                    >
-                      <span>Play AWS Cloud Quest</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+                      <Gift className="w-4 h-4 text-white" />
+                      <span>Apply for Leader & Swags</span>
+                    </button>
+                    <div className="flex gap-2">
+                      <a
+                        href="https://explore.skillbuilder.aws/learn/course/external/view/elearning/134/aws-cloud-practitioner-essentials"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 px-3 py-2 rounded-lg bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-pixel font-bold text-[11px] flex items-center justify-center space-x-1 transition-all"
+                      >
+                        <span>Skill Builder</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <a
+                        href="https://aws.amazon.com/training/digital/aws-cloud-quest/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 px-3 py-2 rounded-lg bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-pixel font-bold text-[11px] flex items-center justify-center space-x-1 transition-all"
+                      >
+                        <span>Cloud Quest</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3166,7 +3341,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               </div>
 
               {/* Courses Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {filteredCourses.length === 0 ? (
                   <div className="md:col-span-2 text-center py-12 border-2 border-dashed border-[#1E1B18]/30 rounded-xl space-y-2 bg-[#FAF6EE]">
                     <BookOpen className="w-8 h-8 text-[#685F53] mx-auto" />
@@ -3191,77 +3366,116 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     return (
                       <div 
                         key={course.id}
-                        className={`border-2 border-[#1E1B18] rounded-xl p-6 bg-[#FAF6EE] shadow-overworld flex flex-col justify-between space-y-4 transition-all hover:translate-x-[-1px] hover:translate-y-[-1px]`}>
+                        className="border-2 border-[#1E1B18] rounded-xl p-5 bg-[#FAF6EE] shadow-overworld flex flex-col justify-between space-y-3.5 transition-all hover:translate-x-[-1px] hover:translate-y-[-1px]">
                         <div>
                           {isTradeRecommended && (
                             <div className="mb-2">
-                              <span className="bg-[#2D6A4F] text-white text-[10px] font-bold font-pixel px-2 py-0.5 rounded border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] inline-flex items-center space-x-1">
+                              <span className="bg-[#2D6A4F] text-white text-[10px] font-bold font-pixel px-2 py-0.5 rounded border border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] inline-flex items-center space-x-1">
                                 <span>★</span>
                                 <span>Recommended for {cleanBadge(selectedTrade.title)}</span>
                               </span>
                             </div>
                           )}
+
+                          {/* Provider, Difficulty & Certificate Badge */}
                           <div className="flex items-center justify-between gap-2 mb-2">
-                            <span className="text-xs font-mono text-[#685F53] uppercase font-semibold">
-                              {course.provider} · {course.duration}
-                            </span>
-                            <span className="bg-[#F2EAD6] border-2 border-[#1E1B18] text-[#1E1B18] text-[11px] font-bold px-2 py-0.5 rounded font-pixel">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs font-mono font-bold text-[#1E1B18] bg-[#F2EAD6] px-2 py-0.5 rounded border border-[#1E1B18]/20">
+                                {course.provider}
+                              </span>
+                              <span className="text-[11px] font-mono text-[#685F53]">
+                                {course.duration}
+                              </span>
+                            </div>
+                            <span className="bg-[#2D6A4F]/15 border border-[#2D6A4F]/40 text-[#2D6A4F] text-[10px] font-bold px-2 py-0.5 rounded font-pixel">
                               {course.certificateType}
                             </span>
                           </div>
 
-                          <h3 className="font-pixel text-xl font-bold text-[#1E1B18]">{course.title}</h3>
-                          <p className="text-xs text-[#685F53] mt-2 leading-relaxed font-medium">{course.description}</p>
+                          {/* Course Title */}
+                          <h3 className="font-pixel text-lg font-bold text-[#1E1B18] leading-tight">
+                            {course.title}
+                          </h3>
 
-                          <div className="mt-4 pt-3 border-t-2 border-[#1E1B18]/15 space-y-1.5">
-                            <span className="text-[11px] font-pixel uppercase text-[#685F53] block font-bold">Core Competencies:</span>
-                            <ul className="text-xs text-[#1E1B18] space-y-1 font-mono">
-                              {course.whatYouLearn.slice(0, 3).map((item, i) => (
-                                <li key={i} className="flex items-start space-x-1.5">
-                                  <span className="text-[#2D6A4F] font-bold">✓</span>
-                                  <span className="text-[#685F53]">{item}</span>
-                                </li>
-                              ))}
-                            </ul>
+                          {/* Short Concise Description */}
+                          <p className="text-xs text-[#685F53] mt-1.5 leading-relaxed font-medium line-clamp-2">
+                            {course.description}
+                          </p>
+
+                          {/* Skills Pills */}
+                          <div className="flex flex-wrap gap-1.5 mt-2.5">
+                            {course.whatYouLearn.slice(0, 3).map((item, i) => (
+                              <span key={i} className="text-[11px] bg-[#F2EAD6] text-[#1E1B18] px-2 py-0.5 rounded border border-[#1E1B18]/20 font-mono truncate max-w-[200px]">
+                                {item.split(' ').slice(0, 4).join(' ')}
+                              </span>
+                            ))}
                           </div>
+
+                          {/* Collapsible Syllabus & Outcomes Drawer */}
+                          {expandedCourseId === course.id && (
+                            <div className="mt-3 pt-3 border-t border-[#1E1B18]/15 bg-[#F2EAD6] rounded-lg p-3 space-y-1.5 animate-fadeIn">
+                              <span className="text-[10px] font-pixel uppercase text-[#685F53] block font-bold">
+                                What You Will Master:
+                              </span>
+                              <ul className="space-y-1 text-xs font-mono">
+                                {course.whatYouLearn.map((item, i) => (
+                                  <li key={i} className="flex items-start space-x-1.5">
+                                    <span className="text-[#2D6A4F] font-bold shrink-0">✓</span>
+                                    <span className="text-[#685F53] font-medium">{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
 
-                        <div className="pt-4 border-t-2 border-[#1E1B18]/15 flex flex-wrap items-center justify-between gap-2">
-                          <button 
-                            onClick={() => handleToggleCourseStatus(course.id)}
-                            className={`text-xs px-3 py-2 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center space-x-1.5 transition-all font-pixel font-bold ${
-                              isCertified 
-                                ? "bg-[#2D6A4F] text-white" 
-                                : isInProgress
-                                ? "bg-[#D9822B] text-white"
-                                : "bg-[#F2EAD6] text-[#1E1B18] hover:bg-[#EAE0CA]"
-                            }`}>
-                            {isCertified ? (
-                              <>
-                                <CheckCheck className="w-3.5 h-3.5" />
-                                <span>Certified & Badged</span>
-                              </>
-                            ) : isInProgress ? (
-                              <>
-                                <Clock className="w-3.5 h-3.5 text-white" />
-                                <span>In Progress · Mark Certified</span>
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-3.5 h-3.5 fill-current" />
-                                <span>Mark In Progress</span>
-                              </>
-                            )}
+                        {/* Card Footer: Toggle Syllabus, Status & Enroll */}
+                        <div className="pt-3 border-t-2 border-[#1E1B18]/10 flex flex-wrap items-center justify-between gap-2">
+                          <button
+                            onClick={() => setExpandedCourseId(expandedCourseId === course.id ? null : course.id)}
+                            className="text-xs font-pixel text-[#1E1B18] hover:text-[#D9822B] font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>{expandedCourseId === course.id ? "Hide Syllabus" : "View Syllabus"}</span>
+                            <ChevronRight className={`w-3 h-3 transition-transform ${expandedCourseId === course.id ? "rotate-90" : ""}`} />
                           </button>
 
-                          <a 
-                            href={course.enrollmentUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-[#2D6A4F] hover:bg-[#245640] text-white text-xs font-bold font-pixel px-4 py-2 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center space-x-1.5 transition-all">
-                            <span>Enroll Free & Certify</span>
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
+                          <div className="flex items-center space-x-2">
+                            <button 
+                              onClick={() => handleToggleCourseStatus(course.id)}
+                              className={`text-xs px-2.5 py-1.5 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center space-x-1 font-pixel font-bold transition-all ${
+                                isCertified 
+                                  ? "bg-[#2D6A4F] text-white" 
+                                  : isInProgress
+                                  ? "bg-[#D9822B] text-white"
+                                  : "bg-[#F2EAD6] text-[#1E1B18] hover:bg-[#EAE0CA]"
+                              }`}>
+                              {isCertified ? (
+                                <>
+                                  <CheckCheck className="w-3.5 h-3.5" />
+                                  <span>Certified</span>
+                                </>
+                              ) : isInProgress ? (
+                                <>
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>In Progress</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-3.5 h-3.5 fill-current" />
+                                  <span>Start</span>
+                                </>
+                              )}
+                            </button>
+
+                            <a 
+                              href={course.enrollmentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-[#2D6A4F] hover:bg-[#245640] text-white text-xs font-bold font-pixel px-3 py-1.5 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center space-x-1 transition-all">
+                              <span>Enroll Free</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
                         </div>
                       </div>
                     );
@@ -4173,10 +4387,24 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               setAppView(tab as AppView);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            latestInterview={candidateScorecard}
+            diagnosticFit={tradeFitAnalysis}
+            readinessScore={readinessScore}
+            onOpenAwsModal={() => setIsAwsModalOpen(true)}
           />
         )}
 
       </main>
+
+      {/* AWS Student Builder Campus Leader Application Modal */}
+      <AwsStudentBuilderModal
+        isOpen={isAwsModalOpen}
+        onClose={() => setIsAwsModalOpen(false)}
+        initialEmail={currentUser?.email}
+        initialName={currentUser?.name}
+        initialCollege={currentUser?.college}
+        initialDegree={currentUser?.degree}
+      />
     </div>
   );
 }

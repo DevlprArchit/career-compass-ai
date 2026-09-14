@@ -1,0 +1,15 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - echo "No frontend build step configured"
+    build:
+      commands:
+        - echo "Frontend placeholder build complete"
+  artifacts:
+    baseDirectory: overworld-ui
+    files:
+      - "**/*"
+  cache:
+    paths: []

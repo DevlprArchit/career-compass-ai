@@ -713,6 +713,78 @@ export default function CareerCompassApp() {
     }
   };
 
+  const handleQuickStartCalibration = () => {
+    setOnboardingStep(5);
+    setIsEvaluatingAssessment(true);
+
+    const matchedRole = TARGET_ROLES.find(r => r.id === selectedTrade.id) || TARGET_ROLES[0];
+    setSelectedRole(matchedRole);
+    const roleMilestones = ROLE_MILESTONES[matchedRole.id] || ROLE_MILESTONES[selectedTrade.id] || ROLE_MILESTONES["ai-ml-engineer"];
+    setMilestones(roleMilestones);
+
+    const baseScore = selectedCodingExp.includes("Advanced") ? 88 : selectedCodingExp.includes("Intermediate") ? 78 : 68;
+    setReadinessScore(baseScore);
+
+    const baseSkills = TRADE_SKILL_MATRICES[selectedTrade.id] || TRADE_SKILL_MATRICES["ai-ml-engineer"] || [];
+    setDynamicSkillMatrix(baseSkills);
+
+    setTradeFitAnalysis({
+      tradeFitIndex: 85,
+      recommendedTrack: selectedTrade.title,
+      primaryStrength: `Strong foundational orientation in ${selectedTrade.title}.`,
+      criticalGap: "Complete Week 1 milestone projects and conduct initial mock interview.",
+      placementAdvice: `Follow the calibrated 12-week ${selectedTrade.title} curriculum.`
+    });
+
+    setInterviewTurns([
+      {
+        speaker: "ai",
+        text: getInitialInterviewQuestion(selectedTrade.id)
+      }
+    ]);
+
+    const baseUser: UserProfile = {
+      id: currentUser?.id || "usr_" + Math.random().toString(36).substring(2, 9),
+      name: candidateName.trim() || authName.trim() || (currentUser?.name || "Alex Rivera"),
+      username: (candidateName.trim() || authName.trim() || (currentUser?.name || "alex_rivera")).toLowerCase().replace(/[^a-z0-9]/g, "_"),
+      college: candidateCollege.trim() || (currentUser?.college || "School of Computing & Engineering"),
+      email: authEmail.trim() || (currentUser?.email || "candidate@college.edu"),
+      degree: selectedDegree,
+      semesterOrStatus: selectedSemester,
+      cgpaBand: selectedCgpaBand,
+      codingExperience: selectedCodingExp,
+      dsaCount: selectedDsaCount,
+      specializationTrade: selectedTrade.title,
+      targetCompanyTier: selectedCompanyTier,
+      placementTimeline: selectedTimeline,
+      weeklyHours: weeklyHours,
+      readinessScore: baseScore,
+      tradeFitIndex: 85,
+      targetRole: matchedRole.title,
+      createdAt: new Date().toISOString()
+    };
+
+    setCurrentUser(baseUser);
+    try {
+      localStorage.setItem("careercompass_user", JSON.stringify(baseUser));
+      localStorage.setItem("careercompass_score", String(baseScore));
+      localStorage.setItem("careercompass_skills", JSON.stringify(baseSkills));
+      saveProfileToSupabase({
+        userId: baseUser.id,
+        name: baseUser.name,
+        targetRole: matchedRole.title,
+        experienceLevel: selectedSemester,
+        readinessScore: baseScore
+      });
+    } catch {}
+
+    setTimeout(() => {
+      setIsEvaluatingAssessment(false);
+      setSessionState("app");
+      setAppView("report");
+    }, 1000);
+  };
+
   // =========================================================================
   // EXPORT PLACEMENT REPORT
   // =========================================================================
@@ -2197,11 +2269,20 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 ))}
               </div>
 
-              <div className="pt-4 flex justify-end">
+              <div className="pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handleQuickStartCalibration}
+                  className="text-xs font-semibold text-[#1E1B18]/70 hover:text-[#D9822B] transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#D9822B]" />
+                  <span>Quick Start (Use calibrated industry benchmarks)</span>
+                </button>
+
                 <button 
                   onClick={handleNextDiagnosticQuestion}
                   disabled={currentChoice === null}
-                  className={`px-6 py-2.5 rounded-lg text-xs font-medium flex items-center space-x-2 ${
+                  className={`px-6 py-2.5 rounded-lg text-xs font-medium flex items-center justify-center space-x-2 ${
                     currentChoice !== null 
                       ? "bg-ink text-paper hover:bg-ink/90 cursor-pointer shadow-sm" 
                       : "bg-hairline text-ink-40 cursor-not-allowed"
@@ -2365,6 +2446,81 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         =================================================================== */}
         {appView === "report" && (
           <div className="space-y-8">
+            
+            {/* Commercial Placement Readiness Guided Checklist */}
+            <div className="bg-[#FAF8F3] rounded-2xl border-2 border-[#1E1B18] shadow-overworld p-5 sm:p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1E1B18]/10 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#2D6A4F] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                    ✓
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-[#1E1B18] font-display">Placement Readiness Quick-Guide</h3>
+                    <p className="text-[11px] text-[#1E1B18]/60">Follow this 4-step action plan to maximize placement offers</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-mono font-bold text-[#2D6A4F] bg-[#2D6A4F]/10 px-2.5 py-1 rounded-full border border-[#2D6A4F]/20">
+                    Step 1 Complete
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                {/* Step 1 */}
+                <div 
+                  onClick={() => { setAppView("profile"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className="p-4 rounded-xl border-2 border-[#2D6A4F] bg-[#2D6A4F]/5 cursor-pointer hover:bg-[#2D6A4F]/10 transition-all space-y-1.5 shadow-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] font-bold text-[#2D6A4F] uppercase">Step 1 · Verified</span>
+                    <CheckCircle2 className="w-4 h-4 text-[#2D6A4F]" />
+                  </div>
+                  <h4 className="font-bold text-[#1E1B18]">Candidate Portfolio</h4>
+                  <p className="text-[11px] text-[#1E1B18]/65 leading-tight">Identity, verified skills & AWS badge active.</p>
+                </div>
+
+                {/* Step 2 */}
+                <div 
+                  onClick={() => { setAppView("resume"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className="p-4 rounded-xl border-2 border-[#1E1B18] bg-white cursor-pointer hover:border-[#D9822B] hover:shadow-sm transition-all space-y-1.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] font-bold text-[#D9822B] uppercase">Step 2 · Action Required</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#D9822B]" />
+                  </div>
+                  <h4 className="font-bold text-[#1E1B18]">Audit Resume for ATS</h4>
+                  <p className="text-[11px] text-[#1E1B18]/65 leading-tight">Run keyword match & Google X-Y-Z check.</p>
+                </div>
+
+                {/* Step 3 */}
+                <div 
+                  onClick={() => { setAppView("interview"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className="p-4 rounded-xl border-2 border-[#1E1B18] bg-white cursor-pointer hover:border-[#2A6F97] hover:shadow-sm transition-all space-y-1.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] font-bold text-[#2A6F97] uppercase">Step 3 · Practice</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#2A6F97]" />
+                  </div>
+                  <h4 className="font-bold text-[#1E1B18]">Technical Voice Screening</h4>
+                  <p className="text-[11px] text-[#1E1B18]/65 leading-tight">Practice screening with AI Bar Raiser.</p>
+                </div>
+
+                {/* Step 4 */}
+                <div 
+                  onClick={() => { setAppView("roadmap"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className="p-4 rounded-xl border-2 border-[#1E1B18] bg-white cursor-pointer hover:border-[#1E1B18] hover:shadow-sm transition-all space-y-1.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] font-bold text-[#1E1B18] uppercase">Step 4 · 12-Week Track</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#1E1B18]" />
+                  </div>
+                  <h4 className="font-bold text-[#1E1B18]">Unlock 12-Week Roadmap</h4>
+                  <p className="text-[11px] text-[#1E1B18]/65 leading-tight">Review Phase 1 core theory & project goals.</p>
+                </div>
+              </div>
+            </div>
+
             <div className="border-b border-hairline pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2 text-xs font-mono mb-2">

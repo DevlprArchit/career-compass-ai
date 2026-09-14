@@ -18,6 +18,7 @@ import {
   Edit3, 
   Share2, 
   Check, 
+  Copy,
   Plus, 
   X, 
   Camera, 
@@ -55,9 +56,11 @@ export default function StudentProfile({ user, onUpdateUser, onNavigateToTab }: 
   // State for active profile tab
   const [activeTab, setActiveTab] = useState<"overview" | "skills" | "projects" | "settings">("overview");
 
-  // Edit Profile Modal State
+  // Edit Profile & Share Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedBadge, setCopiedBadge] = useState(false);
 
   // Form Fields for Editing - Pure real data derived from user intake
   const [formData, setFormData] = useState({
@@ -264,13 +267,34 @@ export default function StudentProfile({ user, onUpdateUser, onNavigateToTab }: 
     setNewProjectModal(false);
   };
 
-  // Copy Profile Link
-  const handleShareProfile = () => {
+  // Public Profile URL Generator
+  const getPublicProfileUrl = () => {
     if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.href);
+      const uName = formData.username || (formData.name ? formData.name.toLowerCase().replace(/[^a-z0-9]/g, "_") : "candidate");
+      return `${window.location.origin}/p/${encodeURIComponent(uName)}`;
+    }
+    return "https://careercompass.ai/p/candidate";
+  };
+
+  const handleCopyProfileUrl = () => {
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(getPublicProfileUrl());
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);
     }
+  };
+
+  const handleCopyBadgeCode = () => {
+    if (typeof window !== "undefined") {
+      const code = `[![CareerCompass Profile](https://img.shields.io/badge/CareerCompass-Verified_Developer-2D6A4F?style=for-the-badge&logo=compass)](${getPublicProfileUrl()})`;
+      navigator.clipboard.writeText(code);
+      setCopiedBadge(true);
+      setTimeout(() => setCopiedBadge(false), 2500);
+    }
+  };
+
+  const handleShareProfile = () => {
+    setIsShareModalOpen(true);
   };
 
   // Active cover gradient
@@ -1071,6 +1095,121 @@ export default function StudentProfile({ user, onUpdateUser, onNavigateToTab }: 
                 Save Changes
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. COMMERCIAL SHARE PORTFOLIO MODAL */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#1E1B18]/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#FAF8F3] rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border-2 border-[#1E1B18] my-8 animate-scaleUp">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#1E1B18]/10 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#2D6A4F] text-white flex items-center justify-center">
+                  <Share2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1E1B18] font-display tracking-tight">Share Verified Portfolio</h3>
+                  <p className="text-[11px] text-[#1E1B18]/60">Public link accessible by recruiters & hiring managers</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsShareModalOpen(false)} 
+                className="p-1.5 rounded-lg text-[#1E1B18]/60 hover:text-[#1E1B18] hover:bg-[#1E1B18]/5 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Public Link Box */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#1E1B18] uppercase tracking-wider font-mono">Your Public Portfolio Link</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-white border-2 border-[#1E1B18] rounded-xl px-3 py-2 text-xs font-mono text-[#1E1B18] truncate select-all">
+                  {getPublicProfileUrl()}
+                </div>
+                <button
+                  onClick={handleCopyProfileUrl}
+                  className="px-4 py-2 rounded-xl bg-[#1E1B18] hover:bg-[#2D2A26] text-white text-xs font-bold transition-all shadow-sm shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  {copiedLink ? <Check className="w-3.5 h-3.5 text-[#52B788]" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedLink ? "Copied!" : "Copy"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 1-Click Social Shares */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-[#1E1B18] uppercase tracking-wider font-mono">1-Click Share</label>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <a
+                  href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(getPublicProfileUrl())}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2.5 rounded-xl border border-[#1E1B18]/15 bg-white hover:bg-[#0077B5]/10 hover:border-[#0077B5] hover:text-[#0077B5] flex items-center justify-center gap-1.5 font-bold transition-all"
+                >
+                  <Linkedin className="w-4 h-4 text-[#0077B5]" />
+                  <span>LinkedIn</span>
+                </a>
+                <a
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Check out my verified software developer portfolio and skills report on CareerCompass AI: ${getPublicProfileUrl()}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2.5 rounded-xl border border-[#1E1B18]/15 bg-white hover:bg-black/5 hover:border-black flex items-center justify-center gap-1.5 font-bold transition-all text-[#1E1B18]"
+                >
+                  <span className="font-bold text-sm">𝕏</span>
+                  <span>Twitter</span>
+                </a>
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Hey! Check out my verified developer portfolio on CareerCompass AI: ${getPublicProfileUrl()}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2.5 rounded-xl border border-[#1E1B18]/15 bg-white hover:bg-[#25D366]/10 hover:border-[#25D366] hover:text-[#25D366] flex items-center justify-center gap-1.5 font-bold transition-all"
+                >
+                  <span className="text-[#25D366] font-bold text-sm">💬</span>
+                  <span>WhatsApp</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Embeddable GitHub Badge */}
+            <div className="space-y-2 pt-1 border-t border-[#1E1B18]/10">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-[#1E1B18] uppercase tracking-wider font-mono">GitHub Profile Badge</label>
+                <button
+                  onClick={handleCopyBadgeCode}
+                  className="text-xs font-semibold text-[#2D6A4F] hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedBadge ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  <span>{copiedBadge ? "Badge Code Copied!" : "Copy Markdown"}</span>
+                </button>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-[#1E1B18]/15 text-[11px] font-mono text-[#1E1B18]/80 select-all overflow-x-auto">
+                {`[![CareerCompass Portfolio](https://img.shields.io/badge/CareerCompass-Verified_Developer-2D6A4F?style=for-the-badge&logo=compass)](${getPublicProfileUrl()})`}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-[#1E1B18]/10">
+              <a
+                href={getPublicProfileUrl()}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-semibold text-[#D9822B] hover:underline inline-flex items-center gap-1"
+              >
+                <span>Preview Public Page</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <button
+                onClick={() => setIsShareModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-[#FAF8F3] hover:bg-[#EAE0CA] border border-[#1E1B18]/20 text-[#1E1B18] text-xs font-bold transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+
           </div>
         </div>
       )}

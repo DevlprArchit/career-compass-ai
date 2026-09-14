@@ -58,10 +58,10 @@ const config: Config = {
         "cyber-emerald": "#2D6A4F",
       },
       fontFamily: {
-        pixel: ['"Pixelify Sans"', '"Space Mono"', "monospace"],
-        display: ['"Pixelify Sans"', '"Inter"', "system-ui", "sans-serif"],
-        mono: ['"Space Mono"', "ui-monospace", "monospace"],
-        sans: ['"Inter"', "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+        sans: ['"Inter"', '"Plus Jakarta Sans"', "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+        display: ['"Inter"', '"Plus Jakarta Sans"', "-apple-system", "BlinkMacSystemFont", "system-ui", "sans-serif"],
+        pixel: ['"Inter"', '"Space Mono"', "sans-serif"],
+        mono: ['"Space Mono"', '"JetBrains Mono"', "ui-monospace", "monospace"],
       },
       boxShadow: {
         "overworld-sm": "2px 2px 0px #1E1B18",

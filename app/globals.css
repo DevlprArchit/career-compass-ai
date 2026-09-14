@@ -28,11 +28,12 @@ body {
 }
 
 .font-display {
-  font-family: "Pixelify Sans", "Space Mono", ui-monospace, monospace;
+  font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 .font-pixel {
-  font-family: "Pixelify Sans", "Space Mono", ui-monospace, monospace;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* Hide scrollbar for smooth mobile horizontal swipe */

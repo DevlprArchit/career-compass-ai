@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { ACTIVE_GEMINI_MODELS } from "@/lib/gemini-safe-json";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
@@ -21,7 +22,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ polished: polishedFallback });
     }
 
-    const candidateModels = ["gemini-3.6-flash"];
     let polished = "";
 
     const prompt = `You are an elite Tech Resume Editor & Career Consultant from Draftline AI.
@@ -36,7 +36,7 @@ RULES:
 3. Make it concise, punchy, and highly appealing to both ATS parsers and hiring managers.
 4. Return ONLY the enhanced text without quotation marks, markdown headings, or conversational pleasantries.`;
 
-    for (const modelName of candidateModels) {
+    for (const modelName of ACTIVE_GEMINI_MODELS) {
       try {
         const model = genAI.getGenerativeModel({ model: modelName });
         const timeoutPromise = new Promise((_, reject) => 

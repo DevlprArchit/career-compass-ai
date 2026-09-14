@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Compass, 
   CheckCircle2, 
@@ -52,7 +52,13 @@ import {
   ThumbsDown,
   Zap,
   PlayCircle,
-  FileText
+  FileText,
+  Building2,
+  User,
+  Cloud,
+  Mic,
+  MicOff,
+  Radio
 } from "lucide-react";
 
 import { 
@@ -81,9 +87,11 @@ import {
   cleanBadge
 } from "@/lib/discovery-engine";
 
+import { TARGET_COMPANIES, TargetCompany, getCompanyEligibility } from "@/lib/company-data";
 import { CERTIFIED_COURSES, CertifiedCourse, getRecommendedCoursesForTrade } from "@/lib/certified-courses";
 import { CODING_CHALLENGES, CodingChallenge } from "@/lib/coding-challenges";
 import ResumeBuilder from "@/components/ResumeBuilder";
+import StudentProfile from "@/components/StudentProfile";
 import { FEATURE_FLAGS } from "@/lib/feature-flags";
 import { 
   signInWithGooglePopup, 
@@ -100,7 +108,7 @@ import {
   saveInterviewSessionToSupabase
 } from "@/lib/supabase/client";
 
-export type AppView = "report" | "certifications" | "roadmap" | "coding" | "interview" | "cautions" | "resume";
+export type AppView = "report" | "companies" | "roadmap" | "coding" | "interview" | "certifications" | "resume" | "cautions" | "profile";
 
 interface ChatTurn {
   speaker: "ai" | "user";
@@ -135,6 +143,8 @@ export default function CareerCompassApp() {
   // MULTI-STAGE PROFILE INTAKE STATE
   // =========================================================================
   const [onboardingStep, setOnboardingStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [candidateName, setCandidateName] = useState<string>("");
+  const [candidateCollege, setCandidateCollege] = useState<string>("");
   const [selectedDegree, setSelectedDegree] = useState<string>(DEGREE_OPTIONS[0]);
   const [selectedSemester, setSelectedSemester] = useState<string>(ACADEMIC_SEMESTER_OPTIONS[2]);
   const [selectedCgpaBand, setSelectedCgpaBand] = useState<string>(CGPA_BAND_OPTIONS[1]);
@@ -249,12 +259,27 @@ export default function CareerCompassApp() {
     communicationScore: string;
   } | null>(null);
 
+  // Speech Recognition & Audio Equalizer State
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const [speechSupported, setSpeechSupported] = useState<boolean>(true);
+  const [micErrorMessage, setMicErrorMessage] = useState<string | null>(null);
+  const [audioMeterLevel, setAudioMeterLevel] = useState<number>(0);
+  const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef<boolean>(false);
+  const audioContextRef = useRef<any>(null);
+  const audioMeterIntervalRef = useRef<any>(null);
+  const finalTranscriptRef = useRef<string>("");
+
+  // =========================================================================
+  // TARGET COMPANIES PORTAL STATE
+  // =========================================================================
+  const [companyTierFilter, setCompanyTierFilter] = useState<string>("All");
+  const [companySearchQuery, setCompanySearchQuery] = useState<string>("");
+
   // =========================================================================
   // JOB CAUTIONS STATE
   // =========================================================================
-  const [jobInputText, setJobInputText] = useState<string>(
-    "Urgent Opening: Python & AI Fresher. Must have 5+ years experience in ChatGPT and PyTorch. Base rate: $15/hour. You must transfer a $100 onboarding hardware deposit via wire."
-  );
+  const [jobInputText, setJobInputText] = useState<string>("");
   const [jobRiskScore, setJobRiskScore] = useState<number | null>(null);
   const [jobRiskLevel, setJobRiskLevel] = useState<string | null>(null);
   const [jobAdvice, setJobAdvice] = useState<string | null>(null);
@@ -312,6 +337,13 @@ export default function CareerCompassApp() {
       const savedSyllabus = localStorage.getItem("careercompass_syllabus_items");
       if (savedSyllabus) {
         setCompletedSyllabusItems(JSON.parse(savedSyllabus));
+      }
+      const savedMilestones = localStorage.getItem("careercompass_milestone_statuses");
+      if (savedMilestones) {
+        try {
+          const statusMap = JSON.parse(savedMilestones);
+          setMilestones(ms => ms.map(m => statusMap[m.id] ? { ...m, status: statusMap[m.id] } : m));
+        } catch {}
       }
     } catch {
       // Local storage fallback
@@ -424,7 +456,8 @@ export default function CareerCompassApp() {
 
     const user: UserProfile = {
       id: userId,
-      name: userName || "Candidate",
+      name: candidateName.trim() || userName || "Candidate",
+      college: candidateCollege.trim() || undefined,
       email: userEmail || "candidate@college.edu",
       degree: selectedDegree,
       semesterOrStatus: selectedSemester,
@@ -623,37 +656,54 @@ export default function CareerCompassApp() {
         }
       ]);
 
-      if (currentUser) {
-        const updatedUser: UserProfile = {
-          ...currentUser,
-          degree: selectedDegree,
-          semesterOrStatus: selectedSemester,
-          cgpaBand: selectedCgpaBand,
-          codingExperience: selectedCodingExp,
-          dsaCount: selectedDsaCount,
-          specializationTrade: selectedTrade.title,
-          targetCompanyTier: selectedCompanyTier,
-          placementTimeline: selectedTimeline,
-          weeklyHours: weeklyHours,
-          tradeFitIndex: finalTradeFit,
+      const baseUser: UserProfile = currentUser ? {
+        ...currentUser,
+        name: candidateName.trim() || currentUser.name,
+        college: candidateCollege.trim() || currentUser.college,
+        degree: selectedDegree,
+        semesterOrStatus: selectedSemester,
+        cgpaBand: selectedCgpaBand,
+        codingExperience: selectedCodingExp,
+        dsaCount: selectedDsaCount,
+        specializationTrade: selectedTrade.title,
+        targetCompanyTier: selectedCompanyTier,
+        placementTimeline: selectedTimeline,
+        weeklyHours: weeklyHours,
+        tradeFitIndex: finalTradeFit,
+        readinessScore: finalScore
+      } : {
+        id: "usr-" + Math.random().toString(36).substring(2, 9),
+        name: candidateName.trim() || authName.trim() || "Candidate",
+        college: candidateCollege.trim() || undefined,
+        email: authEmail.trim() || "candidate@college.edu",
+        degree: selectedDegree,
+        semesterOrStatus: selectedSemester,
+        cgpaBand: selectedCgpaBand,
+        codingExperience: selectedCodingExp,
+        dsaCount: selectedDsaCount,
+        specializationTrade: selectedTrade.title,
+        targetCompanyTier: selectedCompanyTier,
+        placementTimeline: selectedTimeline,
+        weeklyHours: weeklyHours,
+        tradeFitIndex: finalTradeFit,
+        readinessScore: finalScore,
+        createdAt: new Date().toISOString()
+      };
+      setCurrentUser(baseUser);
+      try {
+        localStorage.setItem("careercompass_user", JSON.stringify(baseUser));
+        localStorage.setItem("careercompass_score", String(finalScore));
+        if (finalSkills) {
+          localStorage.setItem("careercompass_skills", JSON.stringify(finalSkills));
+        }
+        saveProfileToSupabase({
+          userId: baseUser.id,
+          name: baseUser.name,
+          targetRole: matchedRole.title,
+          experienceLevel: selectedSemester,
           readinessScore: finalScore
-        };
-        setCurrentUser(updatedUser);
-        try {
-          localStorage.setItem("careercompass_user", JSON.stringify(updatedUser));
-          localStorage.setItem("careercompass_score", String(finalScore));
-          if (finalSkills) {
-            localStorage.setItem("careercompass_skills", JSON.stringify(finalSkills));
-          }
-          saveProfileToSupabase({
-            userId: updatedUser.id,
-            name: updatedUser.name,
-            targetRole: matchedRole.title,
-            experienceLevel: selectedSemester,
-            readinessScore: finalScore
-          });
-        } catch {}
-      }
+        });
+      } catch {}
 
       setTimeout(() => {
         setIsEvaluatingAssessment(false);
@@ -897,7 +947,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
   };
 
   // =========================================================================
-  // MOCK INTERVIEW LOGIC (GEMINI AI)
+  // MOCK INTERVIEW LOGIC (GEMINI AI & SPEECH)
   // =========================================================================
   const handleToggleSpeech = (text: string) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
@@ -916,14 +966,150 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
     window.speechSynthesis.speak(utterance);
   };
 
+  const stopListeningSession = () => {
+    isListeningRef.current = false;
+    setIsListening(false);
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    if (audioMeterIntervalRef.current) {
+      clearInterval(audioMeterIntervalRef.current);
+    }
+    setAudioMeterLevel(0);
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListeningSession();
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      setSpeechSupported(false);
+      setMicErrorMessage("Microphone speech recognition is not supported in this browser. Please type your response.");
+      return;
+    }
+
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    }
+
+    setMicErrorMessage(null);
+    isListeningRef.current = true;
+    setIsListening(true);
+    finalTranscriptRef.current = candidateInput ? candidateInput.trim() + " " : "";
+
+    // Web Audio API volume visualizer
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        try {
+          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+          const audioCtx = new AudioCtx();
+          audioContextRef.current = audioCtx;
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          const source = audioCtx.createMediaStreamSource(stream);
+          source.connect(analyser);
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          audioMeterIntervalRef.current = setInterval(() => {
+            if (!isListeningRef.current) {
+              clearInterval(audioMeterIntervalRef.current);
+              return;
+            }
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+              sum += dataArray[i];
+            }
+            const avg = sum / dataArray.length;
+            const level = Math.min(100, Math.round((avg / 128) * 100));
+            setAudioMeterLevel(level);
+          }, 80);
+        } catch (e) {
+          console.warn("Audio meter setup:", e);
+        }
+      }).catch(err => {
+        console.warn("Mic access notice:", err);
+      });
+    }
+
+    try {
+      const recognition = new SpeechRec();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscriptRef.current += transcript + " ";
+          } else {
+            interim += transcript;
+          }
+        }
+        const fullTranscript = (finalTranscriptRef.current + interim).trim();
+        setCandidateInput(fullTranscript);
+      };
+
+      recognition.onerror = (event: any) => {
+        if (event.error === "no-speech") {
+          return;
+        }
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          setMicErrorMessage("Microphone access was denied. Please allow microphone permissions or type your answer.");
+          stopListeningSession();
+        }
+      };
+
+      recognition.onend = () => {
+        if (isListeningRef.current) {
+          try {
+            recognition.start();
+          } catch {
+            setTimeout(() => {
+              if (isListeningRef.current) {
+                try { recognition.start(); } catch {}
+              }
+            }, 200);
+          }
+        } else {
+          setIsListening(false);
+        }
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error("Speech recognition start failed:", err);
+      stopListeningSession();
+    }
+  };
+
   const handleSendAnswer = async () => {
     if (!candidateInput.trim() || isAiThinking || interviewComplete) return;
+
+    if (isListening) {
+      stopListeningSession();
+    }
 
     const updatedTurns = [
       ...interviewTurns,
       { speaker: "user" as const, text: candidateInput }
     ];
     setInterviewTurns(updatedTurns);
+    const sentText = candidateInput;
     setCandidateInput("");
     setIsAiThinking(true);
 
@@ -931,10 +1117,10 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
       const res = await fetch("/api/interview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(25000),
         body: JSON.stringify({
           history: updatedTurns,
-          userReply: candidateInput,
+          userReply: sentText,
           targetRole: selectedTrade.title
         })
       });
@@ -949,16 +1135,17 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
       if (data.isFinished) {
         setInterviewComplete(true);
+        const card = data.scorecard || data.feedback;
         const scorecard = {
-          score: data.feedback?.score || 88,
-          technicalRating: data.feedback?.technicalRating || "Advanced (8.5/10)",
-          communicationRating: data.feedback?.communicationRating || "Clear & Structured (9.0/10)",
-          hiringVerdict: data.feedback?.hiringVerdict || "Strong Hire (Tier-1 Ready)",
-          verdict: data.feedback?.hiringVerdict || "Strong Placement Readiness (Recommended)",
-          strengths: data.feedback?.strengths || "Demonstrated solid grasp of lexical rules, syntax constraints, and clean technical reasoning.",
-          weaknesses: data.feedback?.weaknesses || "Practice edge-case analysis in data structure traversals.",
-          modelAnswer: data.feedback?.modelAnswer || "In modern production engineering, reserved keywords form the syntax tokenizer while identifiers reference variables and objects.",
-          communicationScore: "Clear, polite, and technically structured explanations."
+          score: card?.score || 84,
+          technicalRating: card?.technicalRating || "Proficient (8.4/10)",
+          communicationRating: card?.communicationRating || "Clear & Articulate (8.8/10)",
+          hiringVerdict: card?.hiringVerdict || "Recommended for Final Round",
+          verdict: card?.hiringVerdict || "Recommended for Final Round",
+          strengths: card?.strengths || "Demonstrated solid technical reasoning and vocabulary.",
+          weaknesses: card?.weaknesses || "Practice edge-case analysis and time complexity tradeoffs.",
+          modelAnswer: card?.modelAnswer || "A complete answer addresses both conceptual definitions and practical system tradeoffs.",
+          communicationScore: "Clear and structured response."
         };
         setCandidateScorecard(scorecard);
 
@@ -973,25 +1160,30 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
       }
     } catch {
       setTimeout(() => {
+        const lowerSent = sentText.toLowerCase();
+        const isVague = lowerSent.length < 15 || lowerSent.includes("don't know") || lowerSent.includes("skip");
+        
         if (updatedTurns.length >= 4) {
           setInterviewTurns([
             ...updatedTurns,
             {
               speaker: "ai",
-              text: "Excellent explanation! That completes our technical drill. I have synthesized your candidate scorecard below."
+              text: "Thank you for completing this technical interview session. I have analyzed your answers and synthesized your evaluation scorecard below."
             }
           ]);
           setInterviewComplete(true);
           const fallbackScorecard = {
-            score: 86,
-            technicalRating: "Proficient (8.6/10)",
-            communicationRating: "Structured & Articulate (9.0/10)",
-            hiringVerdict: "Hire (Ready for Tech Round 2)",
-            verdict: "Good Understanding of Core Concepts",
-            strengths: "Correctly explained language semantics, data flow, and architecture constraints.",
-            weaknesses: "Continue practicing asynchronous race conditions and indexing nuances.",
-            modelAnswer: "Core language keywords cannot be overwritten without corrupting the parser, while identifiers name user-defined references.",
-            communicationScore: "Clear and structured response."
+            score: isVague ? 70 : 85,
+            technicalRating: isVague ? "Needs Polish" : "Proficient (8.5/10)",
+            communicationRating: isVague ? "Needs Structure" : "Clear & Structured (8.8/10)",
+            hiringVerdict: isVague ? "Practice Recommended" : "Hire (Ready for Tech Round 2)",
+            verdict: isVague ? "Additional Preparation Recommended" : "Good Understanding of Core Concepts",
+            strengths: "Addressed core questions and walked through logic during technical screening.",
+            weaknesses: isVague 
+              ? "Ensure answers are backed by concrete engineering examples and technical depth." 
+              : "Continue practicing asynchronous race conditions and indexing nuances.",
+            modelAnswer: "Address both the theoretical definition and practical system tradeoffs with structured examples.",
+            communicationScore: "Professional technical dialogue."
           };
           setCandidateScorecard(fallbackScorecard);
           if (currentUser) {
@@ -1003,11 +1195,17 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             });
           }
         } else {
+          let critique = "";
+          if (isVague) {
+            critique = "That response was quite brief and missed some important technical depth. Let's explore another core topic: ";
+          } else {
+            critique = "I noted your points. To dive deeper into system trade-offs: ";
+          }
           setInterviewTurns([
             ...updatedTurns,
             {
               speaker: "ai",
-              text: "Good explanation! Next question: In Python and modern backend architectures, how do variable mutability and memory referencing affect function arguments and state management?"
+              text: `${critique}In modern architectures, how do state management and memory mutability impact concurrency and function execution?`
             }
           ]);
         }
@@ -1115,17 +1313,32 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
     setIsScanningJob(false);
   };
 
-  // Milestone check toggle
+  // Milestone check toggle with auto-unlocking & localStorage persistence
   const handleToggleMilestone = (milestoneId: string) => {
-    setMilestones(prev => prev.map(m => {
-      if (m.id === milestoneId) {
-        return {
-          ...m,
-          status: m.status === "completed" ? "current" : "completed"
-        };
+    setMilestones(prev => {
+      const targetIndex = prev.findIndex(m => m.id === milestoneId);
+      if (targetIndex === -1) return prev;
+
+      const updated = [...prev];
+      const target = updated[targetIndex];
+      const nextStatus = target.status === "completed" ? "current" : "completed";
+      updated[targetIndex] = { ...target, status: nextStatus };
+
+      // If completed, auto-unlock next locked milestone to current
+      if (nextStatus === "completed" && targetIndex + 1 < updated.length) {
+        if (updated[targetIndex + 1].status === "locked") {
+          updated[targetIndex + 1] = { ...updated[targetIndex + 1], status: "current" };
+        }
       }
-      return m;
-    }));
+
+      try {
+        const statusMap: Record<string, string> = {};
+        updated.forEach(m => { statusMap[m.id] = m.status; });
+        localStorage.setItem("careercompass_milestone_statuses", JSON.stringify(statusMap));
+      } catch {}
+
+      return updated;
+    });
   };
 
   // Toggle 3-way course status: not_started -> in_progress -> certified -> not_started
@@ -1156,11 +1369,17 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         if (allDone) {
           setMilestones(ms => {
             const nextIdx = ms.findIndex(m => m.id === milestoneId) + 1;
-            return ms.map((m, idx) => {
+            const updatedMilestones = ms.map((m, idx) => {
               if (m.id === milestoneId) return { ...m, status: "completed" as const };
               if (idx === nextIdx && m.status === "locked") return { ...m, status: "current" as const };
               return m;
             });
+            try {
+              const statusMap: Record<string, string> = {};
+              updatedMilestones.forEach(m => { statusMap[m.id] = m.status; });
+              localStorage.setItem("careercompass_milestone_statuses", JSON.stringify(statusMap));
+            } catch {}
+            return updatedMilestones;
           });
         }
       }
@@ -1175,62 +1394,70 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
     return (
       <div className="min-h-screen bg-paper text-ink flex flex-col font-sans selection:bg-waypoint/20 scroll-smooth">
         {/* Compact Sticky Header */}
-        <header className="border-b border-hairline bg-paper/95 backdrop-blur-md px-6 md:px-10 py-3 flex items-center justify-between sticky top-0 z-50">
-          <div className="flex items-center space-x-2.5 cursor-pointer flex-shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="w-7 h-7 rounded bg-ink flex items-center justify-center text-paper font-display font-bold shadow-sm">
-              <Compass className="w-3.5 h-3.5 text-paper" />
+        <header className="border-b-2 border-hairline-dark bg-paper/95 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+          <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 md:px-8 py-3 flex items-center justify-between">
+            <div className="flex items-center space-x-2.5 cursor-pointer flex-shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+              <div className="w-8 h-8 rounded-lg bg-[#1E1B18] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#D9822B] flex items-center justify-center text-paper font-display font-bold shrink-0">
+                <Compass className="w-4 h-4 text-[#FAF6EE]" />
+              </div>
+              <span className="font-display font-bold text-base md:text-lg tracking-wide text-ink">CareerCompass</span>
+              {/* AWS Student Builder Campus Leader Badge */}
+              <div className="hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-[#1E1B18] text-[11px] font-bold ml-2">
+                <span className="uiverse-radar-beacon w-2.5 h-2.5 rounded-full bg-[#D9822B] text-[#D9822B]"></span>
+                <span>AWS Student Builder</span>
+                <span className="text-[9px] bg-[#D9822B] text-white px-1.5 py-0.5 rounded-xs font-bold uppercase tracking-wider">Campus Leader</span>
+              </div>
             </div>
-            <span className="font-display font-bold text-base md:text-lg tracking-tight text-ink">CareerCompass</span>
-          </div>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center space-x-6 text-xs font-medium text-ink-40">
-            <a href="#overview" className="hover:text-ink transition-colors">Overview</a>
-            <a href="#workspace" className="hover:text-ink transition-colors">Dashboard</a>
-            <a href="#certifications" className="hover:text-ink transition-colors">Certifications</a>
-            <a href="#roadmap" className="hover:text-ink transition-colors">Roadmaps</a>
-            <a href="#faq" className="hover:text-ink transition-colors">FAQ</a>
-          </nav>
+            {/* Desktop Nav */}
+            <nav className="hidden md:flex items-center space-x-6 text-xs font-bold text-ink">
+              <a href="#overview" className="hover:text-waypoint transition-colors">Overview</a>
+              <a href="#workspace" className="hover:text-waypoint transition-colors">Dashboard</a>
+              <a href="#certifications" className="hover:text-waypoint transition-colors">Certifications</a>
+              <a href="#roadmap" className="hover:text-waypoint transition-colors">Roadmaps</a>
+              <a href="#faq" className="hover:text-waypoint transition-colors">FAQ</a>
+            </nav>
 
-          {/* Header Action Buttons */}
-          <div className="flex items-center space-x-2">
-            <button 
-              onClick={() => { setAuthMode("signin"); setSessionState("auth"); }}
-              className="text-xs font-medium text-ink hover:text-ink/80 px-3 py-1.5 hidden sm:inline">
-              Sign In
-            </button>
-            <button 
-              onClick={() => { setAuthMode("signup"); setSessionState("auth"); }}
-              className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-3.5 py-1.5 rounded-lg shadow-sm transition-all">
-              Get Started Free
-            </button>
-            <button 
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-1.5 rounded-lg border border-hairline text-ink">
-              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            </button>
+            {/* Header Action Buttons */}
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={() => { setAuthMode("signin"); setSessionState("auth"); }}
+                className="text-xs font-bold text-ink hover:text-waypoint px-3 py-1.5 hidden sm:inline">
+                Sign In
+              </button>
+              <button 
+                onClick={() => { setAuthMode("signup"); setSessionState("auth"); }}
+                className="uiverse-btn-tactile bg-[#D9822B] text-white border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-xs font-bold px-4 py-2 rounded-xl transition-all">
+                Get Started Free
+              </button>
+              <button 
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-1.5 rounded-lg border-2 border-[#1E1B18] bg-[#FAF6EE] shadow-[2px_2px_0px_#1E1B18] text-ink">
+                {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </header>
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-paper border-b border-hairline px-6 py-3 space-y-2 z-40">
-            <div className="flex flex-col space-y-2 text-xs font-medium text-ink-40">
-              <a href="#overview" onClick={() => setMobileMenuOpen(false)} className="py-1">Overview</a>
-              <a href="#workspace" onClick={() => setMobileMenuOpen(false)} className="py-1">Dashboard</a>
-              <a href="#certifications" onClick={() => setMobileMenuOpen(false)} className="py-1">Certifications</a>
-              <a href="#roadmap" onClick={() => setMobileMenuOpen(false)} className="py-1">Roadmaps</a>
-              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="py-1">FAQ</a>
+          <div className="md:hidden bg-paper border-b-2 border-hairline-dark px-6 py-4 space-y-3 z-40 shadow-md">
+            <div className="flex flex-col space-y-2 text-xs font-bold text-ink">
+              <a href="#overview" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-waypoint">Overview</a>
+              <a href="#workspace" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-waypoint">Dashboard</a>
+              <a href="#certifications" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-waypoint">Certifications</a>
+              <a href="#roadmap" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-waypoint">Roadmaps</a>
+              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-waypoint">FAQ</a>
             </div>
-            <div className="pt-2 border-t border-hairline flex items-center space-x-2">
+            <div className="pt-2 border-t-2 border-hairline-dark flex items-center space-x-2">
               <button 
                 onClick={() => { setAuthMode("signin"); setSessionState("auth"); setMobileMenuOpen(false); }}
-                className="w-1/2 border border-hairline text-ink text-xs font-medium py-1.5 rounded-lg text-center">
+                className="w-1/2 border-2 border-[#1E1B18] bg-[#FAF6EE] shadow-[2px_2px_0px_#1E1B18] text-ink text-xs font-bold py-2 rounded-lg text-center">
                 Sign In
               </button>
               <button 
                 onClick={() => { setAuthMode("signup"); setSessionState("auth"); setMobileMenuOpen(false); }}
-                className="w-1/2 bg-ink text-paper text-xs font-medium py-1.5 rounded-lg text-center shadow-sm">
+                className="w-1/2 bg-[#D9822B] text-white border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-xs font-bold py-2 rounded-lg text-center">
                 Get Started
               </button>
             </div>
@@ -1238,52 +1465,61 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         )}
 
         {/* COMPACT GENERIC HERO */}
-        <section className="px-6 md:px-12 pt-12 pb-10 max-w-4xl mx-auto text-center space-y-5">
-          <div className="inline-flex items-center space-x-2 bg-hairline/50 border border-hairline px-3 py-1 rounded-full text-xs text-ink">
-            <span className="w-1.5 h-1.5 rounded-full bg-path animate-pulse"></span>
-            <span className="font-medium">Developer Career Engine</span>
+        <section className="px-6 md:px-12 pt-14 pb-12 max-w-4xl mx-auto text-center space-y-6">
+          <div className="inline-flex items-center space-x-2 bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] px-3.5 py-1.5 rounded-lg text-xs font-bold text-ink">
+            <span className="uiverse-radar-beacon w-2.5 h-2.5 rounded-full bg-[#2D6A4F] text-[#2D6A4F]"></span>
+            <span className="font-pixel uppercase tracking-wider text-[11px]">Developer Career Engine</span>
           </div>
 
-          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl text-ink font-bold tracking-tight leading-tight">
+          <h1 className="font-display text-4xl sm:text-5xl md:text-6xl text-ink font-bold tracking-tight leading-tight">
             The direct path from <br className="hidden sm:inline" />
             <span className="text-path">code to hired.</span>
           </h1>
 
-          <p className="text-ink-40 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">
+          <p className="text-ink-40 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed font-medium">
             Benchmark your engineering skills, follow curated 12-week roadmaps, earn accredited certificates, and build ATS-ready resumes.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-1">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <button 
               onClick={() => { setAuthMode("signup"); setSessionState("auth"); }}
-              className="w-full sm:w-auto bg-ink hover:bg-ink/90 text-paper text-xs font-semibold px-6 py-2.5 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition-all">
+              className="uiverse-btn-emerald w-full sm:w-auto px-7 py-3 rounded-xl flex items-center justify-center space-x-2 text-xs font-bold shadow-[3px_3px_0px_#1E1B18]">
               <span>Start 5-Min Assessment</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-4 h-4" />
             </button>
             <a 
               href="#roadmap"
-              className="w-full sm:w-auto border border-hairline hover:border-ink bg-paper text-ink text-xs font-medium px-5 py-2.5 rounded-lg flex items-center justify-center space-x-1.5 transition-colors">
+              className="uiverse-btn-tactile w-full sm:w-auto px-6 py-3 rounded-xl flex items-center justify-center space-x-1.5 text-xs font-bold">
               <span>Explore Roadmaps</span>
             </a>
           </div>
 
-          {/* Compact Metrics Bar */}
-          <div className="pt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto text-center border-t border-hairline">
-            <div className="py-1">
-              <span className="font-display font-bold text-xl md:text-2xl text-ink block">4 Tracks</span>
-              <span className="text-[11px] text-ink-40">Web, AI, Data & Cloud</span>
+          {/* AWS Student Builder Campus Leader Spotlight Banner */}
+          <div className="pt-3 flex items-center justify-center">
+            <div className="inline-flex flex-wrap items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] text-[#1E1B18] text-xs">
+              <span className="w-2.5 h-2.5 rounded-xs bg-[#D9822B]"></span>
+              <span className="font-bold">AWS Student Builder Campus Leader Initiative:</span>
+              <span className="text-[#685F53] font-medium">Free AWS Skill Builder (CLF-C02) & 3D Cloud Quest Badges</span>
             </div>
-            <div className="py-1">
-              <span className="font-display font-bold text-xl md:text-2xl text-path block">100% Free</span>
-              <span className="text-[11px] text-ink-40">Direct Certificates</span>
+          </div>
+
+          {/* Overworld Metrics Bar */}
+          <div className="pt-8 grid grid-cols-2 sm:grid-cols-4 gap-3.5 max-w-2xl mx-auto text-center">
+            <div className="p-3 bg-[#FAF6EE] border-2 border-[#1E1B18] rounded-xl shadow-[2px_2px_0px_#1E1B18]">
+              <span className="font-display font-bold text-2xl text-ink block">4 Tracks</span>
+              <span className="text-[11px] text-ink-40 font-mono font-semibold uppercase">Web, AI, Data & Cloud</span>
             </div>
-            <div className="py-1">
-              <span className="font-display font-bold text-xl md:text-2xl text-waypoint block">12 Weeks</span>
-              <span className="text-[11px] text-ink-40">Curated Milestones</span>
+            <div className="p-3 bg-[#FAF6EE] border-2 border-[#1E1B18] rounded-xl shadow-[2px_2px_0px_#1E1B18]">
+              <span className="font-display font-bold text-2xl text-path block">100% Free</span>
+              <span className="text-[11px] text-ink-40 font-mono font-semibold uppercase">Direct Certificates</span>
             </div>
-            <div className="py-1">
-              <span className="font-display font-bold text-xl md:text-2xl text-ink block">Zero Ads</span>
-              <span className="text-[11px] text-ink-40">Built for Developers</span>
+            <div className="p-3 bg-[#FAF6EE] border-2 border-[#1E1B18] rounded-xl shadow-[2px_2px_0px_#1E1B18]">
+              <span className="font-display font-bold text-2xl text-waypoint block">12 Weeks</span>
+              <span className="text-[11px] text-ink-40 font-mono font-semibold uppercase">Curated Milestones</span>
+            </div>
+            <div className="p-3 bg-[#FAF6EE] border-2 border-[#1E1B18] rounded-xl shadow-[2px_2px_0px_#1E1B18]">
+              <span className="font-display font-bold text-2xl text-brand-cyan block">AI Guided</span>
+              <span className="text-[11px] text-ink-40 font-mono font-semibold uppercase">Gemini Powered</span>
             </div>
           </div>
         </section>
@@ -1500,27 +1736,27 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         </section>
 
         {/* COMPACT BOTTOM CTA */}
-        <section className="py-10 px-6 md:px-12 bg-ink text-paper text-center space-y-3">
-          <h2 className="font-display text-2xl sm:text-3xl font-semibold">Ready to map your path?</h2>
-          <p className="text-paper/70 text-xs max-w-md mx-auto">
+        <section className="py-12 px-6 md:px-12 bg-[#1E1B18] text-[#FAF6EE] text-center space-y-4 border-t-2 border-[#1E1B18]">
+          <h2 className="font-display text-2xl sm:text-3xl font-bold">Ready to map your path?</h2>
+          <p className="text-[#FAF6EE]/80 text-xs max-w-md mx-auto">
             Take the 5-minute skills check and get your personalized 12-week roadmap.
           </p>
-          <div className="flex items-center justify-center gap-2 pt-1">
+          <div className="flex items-center justify-center gap-3 pt-1">
             <button 
               onClick={() => { setAuthMode("signup"); setSessionState("auth"); }}
-              className="bg-paper hover:bg-paper/90 text-ink text-xs font-semibold px-5 py-2 rounded-lg shadow-sm">
+              className="uiverse-btn-tactile bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] text-xs font-pixel px-5 py-2.5 rounded-xl shadow-overworld border-2 border-[#1E1B18]">
               Start Free Assessment
             </button>
             <button 
               onClick={() => { setAuthMode("signin"); setSessionState("auth"); }}
-              className="border border-paper/30 hover:bg-paper/10 text-paper text-xs font-medium px-4 py-2 rounded-lg">
+              className="uiverse-btn-tactile border-2 border-[#FAF6EE] hover:bg-[#FAF6EE]/10 text-[#FAF6EE] text-xs font-pixel px-4 py-2.5 rounded-xl">
               Sign In
             </button>
           </div>
         </section>
 
         {/* Minimal Footer */}
-        <footer className="border-t border-hairline py-4 px-6 text-center text-[11px] text-ink-40 bg-paper">
+        <footer className="border-t-2 border-[#1E1B18] py-4 px-6 text-center text-[11px] font-pixel text-[#1E1B18]/70 bg-[#FAF6EE]">
           CareerCompass · Open career acceleration platform for software engineers.
         </footer>
       </div>
@@ -1529,16 +1765,16 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
   if (sessionState === "auth") {
     return (
-      <div className="min-h-screen bg-paper text-ink flex flex-col items-center justify-center p-4 font-sans selection:bg-waypoint/20">
-        <div className="w-full max-w-md border border-hairline rounded-xl bg-paper p-8 shadow-lg space-y-6">
+      <div className="min-h-screen bg-[#F2EAD6] text-[#1E1B18] flex flex-col items-center justify-center p-4 font-sans selection:bg-[#D9822B]/20">
+        <div className="w-full max-w-md border-2 border-[#1E1B18] rounded-2xl bg-[#FAF6EE] p-8 shadow-overworld space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-10 h-10 rounded bg-ink mx-auto flex items-center justify-center text-paper font-display font-bold">
-              <Compass className="w-5 h-5 text-paper" />
+            <div className="w-10 h-10 rounded-xl bg-[#1E1B18] mx-auto flex items-center justify-center text-[#FAF6EE] font-display font-bold border-2 border-[#1E1B18] shadow-xs">
+              <Compass className="w-5 h-5 text-[#FAF6EE]" />
             </div>
-            <h2 className="font-display text-2xl font-semibold text-ink">
+            <h2 className="font-display text-2xl font-bold text-[#1E1B18]">
               {authMode === "signup" ? "Create Your Student Account" : "Sign In to Your Compass"}
             </h2>
-            <p className="text-xs text-ink-40">
+            <p className="text-xs text-[#1E1B18]/70">
               {authMode === "signup" 
                 ? "Start your comprehensive student profile intake and specialization diagnostic." 
                 : "Resume your placement roadmap, coding tests, and certified courses."}
@@ -1546,7 +1782,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           </div>
 
           {authError && (
-            <div className="bg-caution/10 border border-caution/30 text-caution text-xs p-3 rounded-lg leading-relaxed">
+            <div className="bg-[#BA3B46]/10 border-2 border-[#BA3B46] text-[#BA3B46] text-xs p-3 rounded-xl leading-relaxed font-semibold">
               {authError}
             </div>
           )}
@@ -1556,7 +1792,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             <button 
               onClick={() => handleAuthSubmit("google")}
               disabled={isAuthLoading}
-              className="w-full border border-hairline hover:border-ink bg-paper py-2.5 px-4 rounded-lg text-xs font-medium flex items-center justify-center space-x-2 transition-colors shadow-sm">
+              className="w-full border-2 border-[#1E1B18] hover:bg-[#EAE0CA] bg-[#FAF6EE] py-2.5 px-4 rounded-xl text-xs font-pixel flex items-center justify-center space-x-2 transition-colors shadow-overworld">
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -1568,47 +1804,47 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           </div>
 
           <div className="flex items-center my-4">
-            <div className="flex-1 border-t border-hairline"></div>
-            <span className="px-3 text-[10px] font-mono uppercase text-ink-40">or enter email details</span>
-            <div className="flex-1 border-t border-hairline"></div>
+            <div className="flex-1 border-t-2 border-[#1E1B18]/20"></div>
+            <span className="px-3 text-[10px] font-pixel uppercase text-[#1E1B18]/60">or enter email details</span>
+            <div className="flex-1 border-t-2 border-[#1E1B18]/20"></div>
           </div>
 
           {/* Email / Password Form */}
           <form onSubmit={(e) => { e.preventDefault(); handleAuthSubmit("email"); }} className="space-y-4">
             {authMode === "signup" && (
               <div>
-                <label className="text-xs font-mono uppercase text-ink-40 block mb-1">Full Name</label>
+                <label className="text-xs font-pixel uppercase text-[#1E1B18] block mb-1">Full Name</label>
                 <input 
                   type="text" 
                   value={authName}
                   onChange={(e) => setAuthName(e.target.value)}
                   placeholder="e.g. Sarah Jenkins" 
-                  className="w-full border border-hairline rounded-lg px-3.5 py-2 text-xs bg-paper focus:outline-none focus:border-ink"
+                  className="w-full border-2 border-[#1E1B18] rounded-xl px-3.5 py-2 text-xs bg-[#F2EAD6] text-[#1E1B18] focus:outline-none focus:ring-2 focus:ring-[#D9822B]"
                   required
                 />
               </div>
             )}
 
             <div>
-              <label className="text-xs font-mono uppercase text-ink-40 block mb-1">Email Address</label>
+              <label className="text-xs font-pixel uppercase text-[#1E1B18] block mb-1">Email Address</label>
               <input 
                 type="email" 
                 value={authEmail}
                 onChange={(e) => setAuthEmail(e.target.value)}
                 placeholder="student@college.edu" 
-                className="w-full border border-hairline rounded-lg px-3.5 py-2 text-xs bg-paper focus:outline-none focus:border-ink"
+                className="w-full border-2 border-[#1E1B18] rounded-xl px-3.5 py-2 text-xs bg-[#F2EAD6] text-[#1E1B18] focus:outline-none focus:ring-2 focus:ring-[#D9822B]"
                 required
               />
             </div>
 
             <div>
-              <label className="text-xs font-mono uppercase text-ink-40 block mb-1">Password</label>
+              <label className="text-xs font-pixel uppercase text-[#1E1B18] block mb-1">Password</label>
               <input 
                 type="password" 
                 value={authPassword}
                 onChange={(e) => setAuthPassword(e.target.value)}
                 placeholder="••••••••" 
-                className="w-full border border-hairline rounded-lg px-3.5 py-2 text-xs bg-paper focus:outline-none focus:border-ink"
+                className="w-full border-2 border-[#1E1B18] rounded-xl px-3.5 py-2 text-xs bg-[#F2EAD6] text-[#1E1B18] focus:outline-none focus:ring-2 focus:ring-[#D9822B]"
                 required
               />
             </div>
@@ -1616,23 +1852,23 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             <button 
               type="submit"
               disabled={isAuthLoading}
-              className="w-full bg-ink hover:bg-ink/90 text-paper text-xs font-medium py-2.5 rounded-lg transition-colors shadow-sm">
+              className="w-full uiverse-btn-tactile bg-[#1E1B18] hover:bg-[#2D2A26] text-[#FAF6EE] text-xs font-pixel py-2.5 rounded-xl transition-colors shadow-overworld border-2 border-[#1E1B18]">
               {isAuthLoading ? "Connecting..." : (authMode === "signup" ? "Create Free Account & Start Intake" : "Sign In to Dashboard")}
             </button>
           </form>
 
-          <div className="text-center pt-2 text-xs text-ink-40">
+          <div className="text-center pt-2 text-xs text-[#1E1B18]/70">
             {authMode === "signup" ? (
               <p>
                 Already have an account?{" "}
-                <button onClick={() => setAuthMode("signin")} className="text-ink font-semibold underline">
+                <button onClick={() => setAuthMode("signin")} className="text-[#1E1B18] font-bold font-pixel underline">
                   Sign In
                 </button>
               </p>
             ) : (
               <p>
                 New to CareerCompass?{" "}
-                <button onClick={() => setAuthMode("signup")} className="text-ink font-semibold underline">
+                <button onClick={() => setAuthMode("signup")} className="text-[#1E1B18] font-bold font-pixel underline">
                   Create Account
                 </button>
               </p>
@@ -1642,7 +1878,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           <div className="text-center">
             <button 
               onClick={() => setSessionState("landing")}
-              className="text-[11px] text-ink-40 hover:text-ink underline font-mono">
+              className="text-[11px] text-[#1E1B18]/70 hover:text-[#1E1B18] underline font-pixel">
               ← Return to Home
             </button>
           </div>
@@ -1683,6 +1919,29 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               </div>
 
               <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-mono uppercase text-ink-40 block mb-1.5 font-semibold">Your Full Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Arpita Sharma"
+                      value={candidateName}
+                      onChange={e => setCandidateName(e.target.value)}
+                      className="w-full text-xs p-3 rounded-lg border border-hairline focus:border-ink focus:outline-none bg-paper text-ink shadow-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-mono uppercase text-ink-40 block mb-1.5 font-semibold">College / University</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. NIT / Engineering College"
+                      value={candidateCollege}
+                      onChange={e => setCandidateCollege(e.target.value)}
+                      className="w-full text-xs p-3 rounded-lg border border-hairline focus:border-ink focus:outline-none bg-paper text-ink shadow-xs"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-xs font-mono uppercase text-ink-40 block mb-2">Education / Experience Level</label>
                   <div className="space-y-2">
@@ -1977,65 +2236,108 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
     <div className="min-h-screen bg-paper text-ink flex flex-col font-sans selection:bg-waypoint/20">
       
       {/* Top Bar Header */}
-      <header className="border-b border-hairline bg-paper px-4 sm:px-6 py-3.5 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center space-x-3 cursor-pointer shrink-0" onClick={() => setAppView("report")}>
-          <div className="w-8 h-8 rounded bg-ink flex items-center justify-center text-paper font-display font-bold shrink-0">
-            <Compass className="w-4 h-4 text-paper" />
+      <header className="border-b-2 border-hairline-dark bg-paper/95 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center space-x-2.5 cursor-pointer shrink-0" onClick={() => setAppView("report")}>
+            <div className="w-8 h-8 rounded-lg bg-[#1E1B18] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#D9822B] flex items-center justify-center text-paper font-display font-bold shrink-0">
+              <Compass className="w-4 h-4 text-[#FAF6EE]" />
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="font-display font-bold text-base sm:text-lg tracking-wide text-ink whitespace-nowrap">CareerCompass AI</span>
+              {/* AWS Student Builder Campus Leader Badge */}
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAppView("certifications");
+                }}
+                title="AWS Student Builder Campus Leader Initiative - Click to view AWS credentials"
+                className="hidden xl:inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-[#1E1B18] text-[10px] font-bold hover:shadow-[3px_3px_0px_#1E1B18] hover:-translate-y-0.5 transition-all cursor-pointer">
+                <span className="uiverse-radar-beacon w-2.5 h-2.5 rounded-full bg-[#D9822B] text-[#D9822B]"></span>
+                <span>AWS Student Builder</span>
+                <span className="text-[9px] bg-[#D9822B] text-white px-1.5 py-0.5 rounded-xs font-bold uppercase tracking-wider">Campus Leader</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-baseline space-x-2 whitespace-nowrap">
-            <span className="font-display font-bold text-lg sm:text-xl tracking-tight text-ink">CareerCompass AI</span>
-            <span className="text-xs text-ink-40 font-mono hidden xl:inline">· {selectedRole.title}</span>
-          </div>
-        </div>
 
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          <nav className="hidden md:flex items-center space-x-1 text-xs font-medium">
+          {/* Desktop Nav Items */}
+          <nav className="hidden lg:flex items-center space-x-1.5 text-xs font-bold overflow-x-auto no-scrollbar py-0.5">
             {([
-                { id: "report", label: "Report", fullLabel: "Candidate Report", icon: BarChart3, enabled: FEATURE_FLAGS.showReport },
-                { id: "certifications", label: "Certifications", fullLabel: "Free Certifications", icon: Award, enabled: FEATURE_FLAGS.showCertifications },
+                { id: "report", label: "Dashboard", fullLabel: "Candidate Report", icon: BarChart3, enabled: FEATURE_FLAGS.showReport },
+                { id: "companies", label: "Companies", fullLabel: "Target Companies", icon: Building2, enabled: FEATURE_FLAGS.showCompanies },
                 { id: "roadmap", label: "Roadmap", fullLabel: "12-Wk Roadmap", icon: Layers, enabled: FEATURE_FLAGS.showRoadmap },
-                { id: "coding", label: "Coding Tests", fullLabel: "Mock Coding Test", icon: Terminal, enabled: FEATURE_FLAGS.showCodingWorkbench },
-                { id: "interview", label: "Interview", fullLabel: "Mock Interview", icon: Users, enabled: FEATURE_FLAGS.showMockInterview },
+                { id: "coding", label: "Coding", fullLabel: "Mock Coding Test", icon: Terminal, enabled: FEATURE_FLAGS.showCodingWorkbench },
+                { id: "interview", label: "AI Voice", fullLabel: "Mock Interview", icon: Users, enabled: FEATURE_FLAGS.showMockInterview },
+                { id: "certifications", label: "Certifications", fullLabel: "Free Certifications", icon: Award, enabled: FEATURE_FLAGS.showCertifications },
                 { id: "resume", label: "AI Resume", fullLabel: "Draftline Resume Builder", icon: FileText, enabled: FEATURE_FLAGS.showResume },
-                { id: "cautions", label: "Job Cautions", fullLabel: "Job Cautions", icon: ShieldAlert, enabled: FEATURE_FLAGS.showJobCautions }
+                { id: "cautions", label: "Safety", fullLabel: "Job Cautions", icon: ShieldAlert, enabled: FEATURE_FLAGS.showJobCautions },
+                { id: "profile", label: "Profile", fullLabel: "Student Profile", icon: User, enabled: FEATURE_FLAGS.showProfile }
               ] as const).filter(tab => tab.enabled).map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setAppView(tab.id as AppView)}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all whitespace-nowrap border-2 ${
                   appView === tab.id 
-                    ? "bg-ink text-paper font-semibold" 
-                    : "text-ink hover:bg-hairline/60"
+                    ? "bg-[#1E1B18] text-[#FAF6EE] border-[#1E1B18] shadow-[2px_2px_0px_#D9822B] font-bold" 
+                    : "border-transparent text-[#1E1B18] hover:border-[#1E1B18] hover:bg-[#FAF6EE] hover:shadow-[2px_2px_0px_#1E1B18]"
                 }`}
               >
                 <tab.icon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{tab.label}</span>
+                <span>{tab.label}</span>
               </button>
             ))}
           </nav>
 
-          <div className="flex items-center space-x-2 border-l border-hairline pl-2 sm:pl-3 shrink-0">
-            <span className="text-xs font-mono text-ink-40 hidden lg:inline max-w-[120px] truncate">{currentUser?.name || "Candidate"}</span>
+          {/* User Profile & Actions */}
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              onClick={() => {
+                setOnboardingStep(1);
+                setSessionState("onboarding");
+              }}
+              title="Retake Intake Assessment"
+              className="hidden sm:inline-flex items-center space-x-1 px-2.5 py-1.5 rounded-lg border-2 border-[#1E1B18] bg-[#FAF6EE] shadow-[2px_2px_0px_#1E1B18] hover:shadow-[3px_3px_0px_#1E1B18] hover:-translate-y-0.5 text-xs font-bold transition-all text-[#1E1B18]"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span className="hidden md:inline">Retake</span>
+            </button>
+
+            <button
+              onClick={() => setAppView("profile")}
+              title="My Profile & Portfolio"
+              className={`px-2.5 py-1.5 rounded-lg border-2 border-[#1E1B18] transition-all flex items-center space-x-1.5 font-bold text-xs ${
+                appView === "profile" 
+                  ? "bg-[#D9822B] text-white shadow-[2px_2px_0px_#1E1B18]" 
+                  : "bg-[#FAF6EE] text-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] hover:shadow-[3px_3px_0px_#1E1B18]"
+              }`}
+            >
+              <div className="w-5 h-5 rounded bg-[#2D6A4F] text-white flex items-center justify-center font-bold text-[10px]">
+                {currentUser?.name ? currentUser.name[0].toUpperCase() : "U"}
+              </div>
+              <span className="hidden md:inline max-w-[100px] truncate">{currentUser?.name || "Profile"}</span>
+            </button>
+
             <button 
               onClick={handleLogout}
               title="Sign Out"
-              className="p-1.5 rounded hover:bg-hairline/50 text-ink-40 hover:text-caution transition-colors">
-              <LogOut className="w-4 h-4" />
+              className="p-2 rounded-lg border-2 border-[#1E1B18] bg-[#FAF6EE] shadow-[2px_2px_0px_#1E1B18] text-[#1E1B18] hover:bg-[#BA3B46] hover:text-white transition-all">
+              <LogOut className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       </header>
 
-      {/* DEDICATED MOBILE HORIZONTAL HUB TABS */}
-      <div className="md:hidden border-b border-hairline bg-paper/95 backdrop-blur-md sticky top-[57px] z-40 px-2.5 py-2 overflow-x-auto no-scrollbar flex items-center space-x-1.5 shadow-xs">
+      {/* DEDICATED MOBILE & TABLET HORIZONTAL HUB TABS */}
+      <div className="lg:hidden border-b-2 border-hairline-dark bg-paper/95 backdrop-blur-md sticky top-[53px] z-40 px-3 py-2 overflow-x-auto no-scrollbar flex items-center space-x-2 shadow-sm">
         {([
-            { id: "report", label: "Report", icon: BarChart3, enabled: FEATURE_FLAGS.showReport },
-            { id: "certifications", label: "Certifications", icon: Award, enabled: FEATURE_FLAGS.showCertifications },
+            { id: "report", label: "Dashboard", icon: BarChart3, enabled: FEATURE_FLAGS.showReport },
+            { id: "companies", label: "Companies", icon: Building2, enabled: FEATURE_FLAGS.showCompanies },
             { id: "roadmap", label: "Roadmap", icon: Layers, enabled: FEATURE_FLAGS.showRoadmap },
-            { id: "coding", label: "Coding Tests", icon: Terminal, enabled: FEATURE_FLAGS.showCodingWorkbench },
-            { id: "interview", label: "Interview", icon: Users, enabled: FEATURE_FLAGS.showMockInterview },
+            { id: "coding", label: "Coding", icon: Terminal, enabled: FEATURE_FLAGS.showCodingWorkbench },
+            { id: "interview", label: "AI Voice", icon: Users, enabled: FEATURE_FLAGS.showMockInterview },
+            { id: "certifications", label: "Certifications", icon: Award, enabled: FEATURE_FLAGS.showCertifications },
             { id: "resume", label: "AI Resume", icon: FileText, enabled: FEATURE_FLAGS.showResume },
-            { id: "cautions", label: "Job Cautions", icon: ShieldAlert, enabled: FEATURE_FLAGS.showJobCautions }
+            { id: "cautions", label: "Safety", icon: ShieldAlert, enabled: FEATURE_FLAGS.showJobCautions },
+            { id: "profile", label: "Profile", icon: User, enabled: FEATURE_FLAGS.showProfile }
           ] as const).filter(tab => tab.enabled).map(tab => (
           <button
             key={tab.id}
@@ -2043,10 +2345,10 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               setAppView(tab.id as AppView);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className={`px-3 py-2 rounded-lg flex items-center space-x-1.5 transition-all text-xs shrink-0 active:scale-95 min-h-[38px] ${
+            className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all text-xs shrink-0 border-2 font-bold ${
               appView === tab.id 
-                ? "bg-ink text-paper font-semibold shadow-xs" 
-                : "bg-hairline/40 text-ink hover:bg-hairline"
+                ? "bg-[#1E1B18] text-[#FAF6EE] border-[#1E1B18] shadow-[2px_2px_0px_#D9822B]" 
+                : "bg-[#FAF6EE] text-[#1E1B18] border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18]"
             }`}
           >
             <tab.icon className="w-3.5 h-3.5 shrink-0" />
@@ -2056,7 +2358,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
       </div>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-3.5 sm:p-6 md:p-10">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3.5 sm:p-6 md:p-8">
 
         {/* ===================================================================
             HUB 1: CANDIDATE READINESS & TRADE FIT REPORT
@@ -2066,22 +2368,22 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             <div className="border-b border-hairline pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2 text-xs font-mono mb-2">
-                  <span className="bg-path/10 text-path px-2.5 py-0.5 rounded-md font-semibold">
+                  <span className="bg-[#FAF6EE] text-[#1E1B18] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] px-2.5 py-0.5 font-pixel font-bold">
                     {cleanBadge(currentUser?.specializationTrade || selectedRole.title)}
                   </span>
-                  <span className="text-hairline">•</span>
-                  <span className="text-ink-40 bg-hairline/40 px-2.5 py-0.5 rounded-md">
+                  <span className="text-[#1E1B18]">•</span>
+                  <span className="text-[#1E1B18] bg-[#FAF6EE] border-2 border-[#1E1B18] px-2 py-0.5 font-pixel text-[11px]">
                     {cleanBadge(currentUser?.degree || selectedDegree)}
                   </span>
-                  <span className="text-hairline">•</span>
-                  <span className="text-ink-40 bg-hairline/40 px-2.5 py-0.5 rounded-md">
+                  <span className="text-[#1E1B18]">•</span>
+                  <span className="text-[#1E1B18] bg-[#FAF6EE] border-2 border-[#1E1B18] px-2 py-0.5 font-pixel text-[11px]">
                     {cleanBadge(currentUser?.semesterOrStatus || selectedSemester)}
                   </span>
                 </div>
-                <h1 className="font-display text-2xl md:text-3xl text-ink font-bold tracking-tight">
+                <h1 className="font-pixel text-2xl md:text-3xl text-[#1E1B18] font-bold tracking-wide">
                   Welcome back, {currentUser?.name ? currentUser.name.split(" ")[0] : "Candidate"} 👋
                 </h1>
-                <p className="text-xs md:text-sm text-ink-40 mt-1 max-w-xl">
+                <p className="text-xs md:text-sm text-[#685F53] mt-1 max-w-xl font-medium">
                   Track your engineering readiness, skill benchmarks, and milestone curriculum.
                 </p>
               </div>
@@ -2089,8 +2391,8 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               <div className="flex flex-wrap items-center gap-2">
                 <button 
                   onClick={handleExportPlacementReport}
-                  className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-3.5 py-2 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all">
-                  <Download className="w-3.5 h-3.5 text-waypoint" />
+                  className="bg-[#2D6A4F] hover:bg-[#245640] text-white text-xs font-bold font-pixel px-3.5 py-2.5 rounded-lg border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none flex items-center space-x-1.5 transition-all">
+                  <Download className="w-3.5 h-3.5 text-[#FAF6EE]" />
                   <span>Export Report</span>
                 </button>
                 <button 
@@ -2098,7 +2400,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     setOnboardingStep(1);
                     setSessionState("onboarding");
                   }}
-                  className="border border-hairline hover:border-ink text-ink text-xs font-medium px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition-colors">
+                  className="bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] text-xs font-bold font-pixel px-3.5 py-2.5 rounded-lg border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none flex items-center space-x-1.5 transition-all">
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>{readinessScore === null ? "Start Assessment" : "Retake Assessment"}</span>
                 </button>
@@ -2106,24 +2408,24 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             </div>
 
             {exportNotice && (
-              <div className="bg-path/10 border border-path/30 text-path text-xs px-4 py-3 rounded-lg flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 text-path shrink-0" />
-                <span className="font-medium">{exportNotice}</span>
+              <div className="bg-[#FAF6EE] border-2 border-[#2D6A4F] text-[#2D6A4F] shadow-[3px_3px_0px_#2D6A4F] text-xs px-4 py-3 rounded-lg flex items-center space-x-2 font-pixel font-bold">
+                <CheckCircle2 className="w-4 h-4 text-[#2D6A4F] shrink-0" />
+                <span>{exportNotice}</span>
               </div>
             )}
 
             {/* Zero-Data / Diagnostic Pending Banner */}
             {(readinessScore === null || !tradeFitAnalysis) && (
-              <div className="bg-path/5 border border-path/30 rounded-xl p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
+              <div className="bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld rounded-xl p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="space-y-1.5">
-                  <div className="inline-flex items-center space-x-2 bg-path/10 text-path px-2.5 py-0.5 rounded text-xs font-mono font-semibold">
-                    <Sparkles className="w-3.5 h-3.5 text-waypoint" />
+                  <div className="inline-flex items-center space-x-2 bg-[#F2EAD6] border-2 border-[#1E1B18] text-[#1E1B18] px-2.5 py-0.5 rounded text-xs font-pixel font-bold">
+                    <Sparkles className="w-3.5 h-3.5 text-[#D9822B]" />
                     <span>Skills Benchmark Pending</span>
                   </div>
-                  <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink">
+                  <h2 className="font-pixel text-xl sm:text-2xl font-bold text-[#1E1B18]">
                     Benchmark your {cleanBadge(selectedRole.title)} skills
                   </h2>
-                  <p className="text-xs sm:text-sm text-ink-40 max-w-2xl leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#685F53] max-w-2xl leading-relaxed font-medium">
                     Complete the 5-minute technical diagnostic to assess your baseline, unlock your skill breakdown, and calibrate your 12-week roadmap.
                   </p>
                 </div>
@@ -2132,9 +2434,9 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     setOnboardingStep(3);
                     setSessionState("onboarding");
                   }}
-                  className="bg-ink hover:bg-ink/90 text-paper text-xs sm:text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center space-x-2 shadow-sm shrink-0 transition-all"
+                  className="bg-[#D9822B] hover:bg-[#C07224] text-white text-xs sm:text-sm font-bold font-pixel px-5 py-2.5 rounded-lg border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none flex items-center space-x-2 shrink-0 transition-all"
                 >
-                  <Terminal className="w-4 h-4 text-waypoint" />
+                  <Terminal className="w-4 h-4 text-white" />
                   <span>Take 5-Min Diagnostic</span>
                 </button>
               </div>
@@ -2143,15 +2445,15 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             {/* Score Ring & Trade Alignment Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Waypoint Gold Ring */}
-              <div className="bg-paper border border-hairline rounded-xl p-6 flex flex-col items-center justify-center text-center">
-                <span className="text-xs uppercase tracking-wider font-mono font-semibold text-ink-40 mb-3">Overall Readiness Score</span>
+              <div className="bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld rounded-xl p-6 flex flex-col items-center justify-center text-center">
+                <span className="text-xs uppercase tracking-wider font-pixel font-bold text-[#685F53] mb-3">Overall Readiness Score</span>
                 <div className="relative w-36 h-36 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
-                    <circle cx="60" cy="60" r="50" stroke="#DCDAD2" strokeWidth="8" fill="transparent" />
+                    <circle cx="60" cy="60" r="50" stroke="#EAE0CA" strokeWidth="10" fill="transparent" />
                     <circle 
                       cx="60" cy="60" r="50" 
-                      stroke="#E2A33B" 
-                      strokeWidth="8" 
+                      stroke="#D9822B" 
+                      strokeWidth="10" 
                       fill="transparent" 
                       strokeDasharray="314" 
                       strokeDashoffset={readinessScore !== null ? 314 - (314 * readinessScore) / 100 : 314}
@@ -2160,12 +2462,12 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     />
                   </svg>
                   <div className="absolute text-center">
-                    <span className="font-sans font-bold text-4xl text-ink">
+                    <span className="font-pixel font-bold text-4xl text-[#1E1B18]">
                       {readinessScore !== null ? `${readinessScore}%` : "--"}
                     </span>
                   </div>
                 </div>
-                <span className="text-xs text-ink-40 mt-3 font-mono">
+                <span className="text-xs text-[#685F53] mt-3 font-mono font-medium">
                   {readinessScore !== null 
                     ? (readinessScore >= 80 ? "Campus Screening Ready" : "Target: 80%+ for Tier-1 Placements")
                     : "Diagnostic Assessment Required"}
@@ -2173,34 +2475,34 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               </div>
 
               {/* Trade Fit & Gap Analysis */}
-              <div className="md:col-span-2 bg-paper border border-hairline rounded-xl p-6 flex flex-col justify-between space-y-4">
+              <div className="md:col-span-2 bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld rounded-xl p-6 flex flex-col justify-between space-y-4">
                 {tradeFitAnalysis ? (
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Advisor Insights & Recommendations</span>
-                      <span className="bg-path/10 text-path text-xs font-semibold px-2.5 py-0.5 rounded font-mono">
+                      <span className="text-xs font-pixel uppercase tracking-wider text-[#2D6A4F] font-bold">Advisor Insights & Recommendations</span>
+                      <span className="bg-[#F2EAD6] border-2 border-[#1E1B18] text-[#1E1B18] text-xs font-bold px-2.5 py-0.5 rounded font-pixel">
                         Role Alignment: {tradeFitAnalysis.tradeFitIndex}% Match
                       </span>
                     </div>
-                    <h3 className="font-display text-xl text-ink font-semibold mt-2">{cleanBadge(tradeFitAnalysis.recommendedTrack)}</h3>
-                    <p className="text-xs text-ink-40 mt-2 leading-relaxed">
-                      <strong className="text-ink">Primary Strength:</strong> {tradeFitAnalysis.primaryStrength}
+                    <h3 className="font-pixel text-xl text-[#1E1B18] font-bold mt-2">{cleanBadge(tradeFitAnalysis.recommendedTrack)}</h3>
+                    <p className="text-xs text-[#1E1B18] mt-2 leading-relaxed">
+                      <strong>Primary Strength:</strong> {tradeFitAnalysis.primaryStrength}
                     </p>
-                    <p className="text-xs text-caution mt-2 leading-relaxed">
-                      <strong className="text-caution">Identified Focus Area:</strong> {tradeFitAnalysis.criticalGap}
+                    <p className="text-xs text-[#BA3B46] mt-2 leading-relaxed font-semibold">
+                      <strong>Identified Focus Area:</strong> {tradeFitAnalysis.criticalGap}
                     </p>
-                    <div className="bg-hairline/20 p-3 rounded-lg mt-3 text-xs text-ink-40 leading-relaxed border border-hairline/50">
-                      <span className="font-mono text-ink font-semibold block mb-0.5">Recommended Next Steps:</span>
+                    <div className="bg-[#F2EAD6] p-3 rounded-lg mt-3 text-xs text-[#1E1B18] leading-relaxed border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18]">
+                      <span className="font-pixel text-[#1E1B18] font-bold block mb-0.5">Recommended Next Steps:</span>
                       {tradeFitAnalysis.placementAdvice}
                     </div>
                   </div>
                 ) : (
                   <div className="py-6 text-center space-y-3">
-                    <div className="w-10 h-10 rounded-full bg-waypoint/15 flex items-center justify-center mx-auto text-waypoint">
-                      <Sparkles className="w-5 h-5" />
+                    <div className="w-12 h-12 rounded-lg bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] flex items-center justify-center mx-auto text-[#D9822B]">
+                      <Sparkles className="w-6 h-6" />
                     </div>
-                    <h3 className="font-display text-lg font-semibold text-ink">Benchmark Evaluation Pending</h3>
-                    <p className="text-xs text-ink-40 max-w-md mx-auto leading-relaxed">
+                    <h3 className="font-pixel text-lg font-bold text-[#1E1B18]">Benchmark Evaluation Pending</h3>
+                    <p className="text-xs text-[#685F53] max-w-md mx-auto leading-relaxed font-medium">
                       Take your 5-minute skills evaluation to uncover your strengths, priority focus areas, and curated career recommendations.
                     </p>
                     <button
@@ -2208,9 +2510,9 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                         setOnboardingStep(3);
                         setSessionState("onboarding");
                       }}
-                      className="bg-ink hover:bg-ink/90 text-paper text-xs font-semibold px-4 py-2 rounded-lg inline-flex items-center space-x-1.5 shadow-sm"
+                      className="bg-[#1E1B18] hover:bg-[#333] text-[#FAF6EE] text-xs font-bold font-pixel px-4 py-2.5 rounded-lg border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none inline-flex items-center space-x-1.5 transition-all"
                     >
-                      <Terminal className="w-3.5 h-3.5 text-waypoint" />
+                      <Terminal className="w-3.5 h-3.5 text-[#D9822B]" />
                       <span>Take Diagnostic Now</span>
                     </button>
                   </div>
@@ -2219,28 +2521,28 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <button 
                     onClick={() => setAppView("certifications")}
-                    className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-1.5 shadow-sm">
-                    <Award className="w-4 h-4 text-waypoint" />
+                    className="bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-xs font-bold font-pixel px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition-all">
+                    <Award className="w-4 h-4 text-[#D9822B]" />
                     <span>Certifications Catalog</span>
                   </button>
                   <button 
                     onClick={() => setAppView("roadmap")}
-                    className="border border-hairline hover:bg-hairline/50 text-ink text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-1.5">
-                    <Layers className="w-4 h-4 text-path" />
+                    className="bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-xs font-bold font-pixel px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition-all">
+                    <Layers className="w-4 h-4 text-[#2D6A4F]" />
                     <span>12-Week Roadmap</span>
                   </button>
                   {FEATURE_FLAGS.showCodingWorkbench && (
                     <button 
                       onClick={() => setAppView("coding")}
-                      className="border border-hairline hover:bg-hairline/50 text-ink text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-1.5">
-                      <Terminal className="w-4 h-4" />
+                      className="bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-xs font-bold font-pixel px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition-all">
+                      <Terminal className="w-4 h-4 text-[#2A6F97]" />
                       <span>Coding Practice</span>
                     </button>
                   )}
                   <button 
                     onClick={() => setAppView("resume")}
-                    className="border border-path/40 bg-path/5 hover:bg-path/10 text-path text-xs font-semibold px-4 py-2 rounded-lg flex items-center space-x-1.5 transition-colors">
-                    <Sparkles className="w-4 h-4 text-waypoint" />
+                    className="bg-[#2D6A4F] hover:bg-[#245640] text-white border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-xs font-bold font-pixel px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition-all">
+                    <Sparkles className="w-4 h-4 text-[#FAF6EE]" />
                     <span>Build ATS Resume</span>
                   </button>
                 </div>
@@ -2248,28 +2550,28 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             </div>
 
             {/* Trade-Specific Skill Mastery vs Industry Benchmarks */}
-            <div className="bg-paper border border-hairline rounded-xl p-6 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-hairline pb-3">
+            <div className="bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld rounded-xl p-6 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-[#1E1B18]/15 pb-3">
                 <div>
-                  <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Skill Competencies</span>
-                  <h2 className="font-display text-xl text-ink font-semibold mt-0.5">Skill Breakdown & Industry Benchmarks</h2>
+                  <span className="text-xs font-pixel uppercase tracking-wider text-[#2D6A4F] font-bold">Skill Competencies</span>
+                  <h2 className="font-pixel text-xl text-[#1E1B18] font-bold mt-0.5">Skill Breakdown & Industry Benchmarks</h2>
                 </div>
-                <div className="flex items-center space-x-4 text-xs font-mono text-ink-40">
+                <div className="flex items-center space-x-4 text-xs font-mono text-[#685F53]">
                   <span className="flex items-center space-x-1.5">
-                    <span className="w-3 h-2 rounded bg-path inline-block" />
+                    <span className="w-3 h-2 rounded-xs bg-[#2D6A4F] border border-[#1E1B18] inline-block" />
                     <span>Your Score</span>
                   </span>
                   <span className="flex items-center space-x-1.5">
-                    <span className="w-2 h-2 rounded-full bg-ink inline-block" />
+                    <span className="w-2 h-2 rounded-full bg-[#1E1B18] inline-block" />
                     <span>Target</span>
                   </span>
                 </div>
               </div>
 
               {readinessScore === null && !dynamicSkillMatrix ? (
-                <div className="py-8 text-center border border-dashed border-hairline rounded-lg text-xs text-ink-40 space-y-2">
-                  <p className="font-medium text-ink">Benchmark evaluation pending.</p>
-                  <p className="max-w-md mx-auto text-[11px]">
+                <div className="py-8 text-center border-2 border-dashed border-[#1E1B18]/30 rounded-lg text-xs text-[#685F53] space-y-2">
+                  <p className="font-bold text-[#1E1B18] font-pixel text-sm">Benchmark evaluation pending.</p>
+                  <p className="max-w-md mx-auto text-xs">
                     Complete the 5-minute diagnostic to benchmark your proficiency against industry hiring standards.
                   </p>
                 </div>
@@ -2279,27 +2581,27 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     const isStrong = skill.status === "Strong";
                     const isAdequate = skill.status === "Adequate";
                     return (
-                      <div key={skill.name} className="border border-hairline rounded-lg p-4 bg-paper/50 space-y-2.5">
+                      <div key={skill.name} className="border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] rounded-lg p-4 bg-[#F2EAD6] space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="font-medium text-xs text-ink">{skill.name}</span>
-                          <span className={`text-[11px] font-mono font-semibold px-2 py-0.5 rounded ${
-                            isStrong ? "bg-path/10 text-path" : isAdequate ? "bg-waypoint/15 text-ink" : "bg-caution/10 text-caution"
+                          <span className="font-bold text-xs text-[#1E1B18]">{skill.name}</span>
+                          <span className={`text-[11px] font-pixel font-bold px-2 py-0.5 border-2 border-[#1E1B18] rounded ${
+                            isStrong ? "bg-[#2D6A4F] text-white" : isAdequate ? "bg-[#D9822B] text-white" : "bg-[#BA3B46] text-white"
                           }`}>
                             {skill.status}
                           </span>
                         </div>
                         <div className="space-y-1">
-                        <div className="flex justify-between text-[11px] font-mono text-ink-40">
+                        <div className="flex justify-between text-[11px] font-mono text-[#685F53]">
                           <span>Candidate: {skill.score}%</span>
                           <span>Benchmark: {skill.benchmark}%</span>
                         </div>
-                        <div className="relative w-full bg-hairline/60 h-2.5 rounded-full overflow-hidden">
+                        <div className="relative w-full bg-[#EAE0CA] border-2 border-[#1E1B18] h-3.5 rounded-sm overflow-hidden">
                           <div 
-                            className={`h-full rounded-full transition-all duration-700 ${isStrong ? "bg-path" : isAdequate ? "bg-waypoint" : "bg-caution"}`}
+                            className={`h-full uiverse-progress-striped transition-all duration-700 ${isStrong ? "uiverse-progress-quest" : isAdequate ? "uiverse-progress-coin" : "uiverse-progress-hazard"}`}
                             style={{ width: `${skill.score}%` }}
                           />
                           <div 
-                            className="absolute top-0 bottom-0 w-1 bg-ink shadow-sm"
+                            className="absolute top-0 bottom-0 w-1 bg-[#1E1B18] shadow-sm"
                             style={{ left: `${skill.benchmark}%` }}
                             title={`Benchmark: ${skill.benchmark}%`}
                           />
@@ -2313,13 +2615,13 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             </div>
 
             {/* Target Company Tier Eligibility Matrix */}
-            <div className="bg-paper border border-hairline rounded-xl p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-hairline pb-3">
+            <div className="bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld rounded-xl p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b-2 border-[#1E1B18]/15 pb-3">
                 <div>
-                  <span className="text-xs font-mono uppercase tracking-wider text-waypoint font-semibold">Career Opportunities</span>
-                  <h2 className="font-display text-xl text-ink font-semibold mt-0.5">Company Tier Fit & Interview Expectations</h2>
+                  <span className="text-xs font-pixel uppercase tracking-wider text-[#D9822B] font-bold">Career Opportunities</span>
+                  <h2 className="font-pixel text-xl text-[#1E1B18] font-bold mt-0.5">Company Tier Fit & Interview Expectations</h2>
                 </div>
-                <span className="text-xs font-mono text-ink-40">Tailored for {selectedTrade.title} Roles</span>
+                <span className="text-xs font-pixel text-[#685F53]">Tailored for {selectedTrade.title} Roles</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -2327,28 +2629,28 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                   const isEligible = tier.status === "Eligible Now";
                   const isOnTrack = tier.status === "On Track (Needs 2-4 Wks)";
                   return (
-                    <div key={tier.tier} className="border border-hairline rounded-xl p-4 bg-paper flex flex-col justify-between space-y-3">
+                    <div key={tier.tier} className="border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] rounded-xl p-4 bg-[#F2EAD6] flex flex-col justify-between space-y-3">
                       <div>
-                        <span className={`text-[11px] font-mono font-semibold px-2 py-0.5 rounded inline-block mb-2 ${
-                          isEligible ? "bg-path/10 text-path" : isOnTrack ? "bg-waypoint/15 text-ink" : "bg-caution/10 text-caution"
+                        <span className={`text-[11px] font-pixel font-bold px-2 py-0.5 rounded border-2 border-[#1E1B18] inline-block mb-2 ${
+                          isEligible ? "bg-[#2D6A4F] text-white" : isOnTrack ? "bg-[#D9822B] text-white" : "bg-[#BA3B46] text-white"
                         }`}>
                           {tier.status}
                         </span>
-                        <h3 className="font-display text-sm font-semibold text-ink">{tier.tier}</h3>
-                        <p className="text-xs text-ink-40 mt-0.5 font-medium">{tier.targetRole}</p>
+                        <h3 className="font-pixel text-sm font-bold text-[#1E1B18]">{tier.tier}</h3>
+                        <p className="text-xs text-[#685F53] mt-0.5 font-medium">{tier.targetRole}</p>
                       </div>
 
-                      <div className="pt-2 border-t border-hairline/80 space-y-1.5 text-[11px] font-mono">
-                        <div className="flex justify-between text-ink-40">
+                      <div className="pt-2 border-t-2 border-[#1E1B18]/15 space-y-1.5 text-[11px] font-mono">
+                        <div className="flex justify-between text-[#685F53]">
                           <span>Readiness Target:</span>
-                          <strong className="text-ink">{tier.readinessReq}%</strong>
+                          <strong className="text-[#1E1B18]">{tier.readinessReq}%</strong>
                         </div>
-                        <div className="flex justify-between text-ink-40">
+                        <div className="flex justify-between text-[#685F53]">
                           <span>DSA Target:</span>
-                          <span className="text-ink">{tier.dsaReq}</span>
+                          <span className="text-[#1E1B18]">{tier.dsaReq}</span>
                         </div>
-                        <div className="pt-1 text-[11px] text-ink-40">
-                          <span className="font-semibold text-ink block">Key Required Skill:</span>
+                        <div className="pt-1 text-[11px] text-[#685F53]">
+                          <span className="font-bold text-[#1E1B18] block font-pixel">Key Required Skill:</span>
                           <span>{tier.keySkill}</span>
                         </div>
                       </div>
@@ -2359,6 +2661,196 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             </div>
           </div>
         )}
+
+        {/* ===================================================================
+            HUB: TARGET ENGINEERING COMPANIES & PORTALS
+        =================================================================== */}
+        {appView === "companies" && (() => {
+          const userCgpaNum = currentUser?.cgpaBand?.includes("9") ? 9.0 :
+            currentUser?.cgpaBand?.includes("8.5") ? 8.5 :
+            currentUser?.cgpaBand?.includes("8") ? 8.0 :
+            currentUser?.cgpaBand?.includes("7.5") ? 7.5 : 7.0;
+
+          const userDsaCountNum = currentUser?.dsaProblemCount === "150+" ? 150 :
+            currentUser?.dsaProblemCount === "75-150" ? 100 :
+            currentUser?.dsaProblemCount === "30-75" ? 50 : 20;
+
+          const currentScore = readinessScore ?? 78;
+          const tiers = ["All", "Tier-1 Tech", "High-Growth Unicorn", "Product Leader", "Enterprise Services"] as const;
+
+          const filteredCompanies = TARGET_COMPANIES.filter(c => {
+            const matchesTier = companyTierFilter === "All" || c.tier === companyTierFilter;
+            const matchesSearch = !companySearchQuery || 
+              c.name.toLowerCase().includes(companySearchQuery.toLowerCase()) ||
+              c.roleTitle.toLowerCase().includes(companySearchQuery.toLowerCase()) ||
+              c.keySkills.some(s => s.toLowerCase().includes(companySearchQuery.toLowerCase()));
+            return matchesTier && matchesSearch;
+          });
+
+          return (
+            <div className="space-y-6">
+              {/* Header Box */}
+              <div className="bg-paper rounded-xl border border-hairline p-5 sm:p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center space-x-2 text-xs font-pixel font-bold text-[#2D6A4F] uppercase tracking-wider mb-1">
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Corporate Placement Gateway</span>
+                    </div>
+                    <h2 className="font-pixel text-2xl md:text-3xl font-bold text-[#1E1B18] tracking-tight">
+                      Target Engineering Companies & Portals
+                    </h2>
+                    <p className="text-xs md:text-sm text-[#685F53] mt-1 max-w-xl font-medium">
+                      Live recruitment criteria, verified compensation packages, required technical stacks, and direct career application portals.
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-3 shrink-0">
+                    <div className="bg-[#F2EAD6] px-4 py-2.5 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-right">
+                      <span className="text-[11px] text-[#685F53] block font-pixel uppercase font-bold">Placement Readiness</span>
+                      <span className="font-pixel text-xl font-bold text-[#2D6A4F]">{currentScore}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filters and Search Bar */}
+                <div className="mt-5 pt-4 border-t-2 border-[#1E1B18]/15 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  <div className="flex items-center overflow-x-auto no-scrollbar space-x-1.5 p-1 bg-[#F2EAD6] border-2 border-[#1E1B18] rounded-lg text-xs font-pixel font-bold">
+                    {tiers.map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setCompanyTierFilter(t)}
+                        className={`px-3 py-1.5 rounded whitespace-nowrap transition-all ${
+                          companyTierFilter === t
+                            ? "bg-[#1E1B18] text-[#FAF6EE] shadow-[2px_2px_0px_#1E1B18]"
+                            : "text-[#685F53] hover:text-[#1E1B18] hover:bg-[#EAE0CA]"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative min-w-[240px]">
+                    <Search className="w-3.5 h-3.5 text-[#685F53] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Search company or skill..."
+                      value={companySearchQuery}
+                      onChange={(e) => setCompanySearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-[#FAF6EE] border-2 border-[#1E1B18] rounded-lg text-xs font-mono text-[#1E1B18] placeholder:text-[#685F53] focus:outline-none focus:shadow-[2px_2px_0px_#1E1B18]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Company Cards Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+                {filteredCompanies.map(company => {
+                  const eligibility = getCompanyEligibility(company, currentScore, userDsaCountNum, userCgpaNum);
+                  const isDirect = eligibility.status === "Direct Fit";
+                  const isReadySoon = eligibility.status === "Ready in 2-4 Wks";
+
+                  return (
+                    <div 
+                      key={company.id}
+                      className="bg-[#FAF6EE] rounded-xl border-2 border-[#1E1B18] p-5 shadow-overworld flex flex-col justify-between hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                    >
+                      <div>
+                        {/* Card Top: Logo, Name, Tier, Package */}
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div 
+                              className="w-10 h-10 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] flex items-center justify-center text-white font-pixel font-bold text-sm shrink-0"
+                              style={{ backgroundColor: company.accentColor || "#1D1D1F" }}
+                            >
+                              {company.logoInitial}
+                            </div>
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <h3 className="font-pixel font-bold text-base text-[#1E1B18]">{company.name}</h3>
+                                <span className="text-[11px] px-2 py-0.5 rounded bg-[#F2EAD6] text-[#1E1B18] border-2 border-[#1E1B18] font-pixel font-bold">
+                                  {company.tier}
+                                </span>
+                              </div>
+                              <span className="text-xs text-[#685F53] font-medium block">
+                                {company.roleTitle}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span className="text-xs font-bold text-white bg-[#2D6A4F] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] px-2.5 py-1 rounded-lg shrink-0 font-pixel">
+                            {company.ctcRange}
+                          </span>
+                        </div>
+
+                        {/* Eligibility Status Banner */}
+                        <div className={`p-3 rounded-lg text-xs mb-3.5 border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] ${
+                          isDirect 
+                            ? "bg-[#2D6A4F]/15 text-[#1E1B18]" 
+                            : isReadySoon 
+                            ? "bg-[#D9822B]/15 text-[#1E1B18]" 
+                            : "bg-[#F2EAD6] text-[#685F53]"
+                        }`}>
+                          <div className="flex items-center space-x-1.5 font-bold mb-0.5 font-pixel">
+                            {isDirect && <CheckCircle2 className="w-3.5 h-3.5 text-[#2D6A4F] shrink-0" />}
+                            {isReadySoon && <Clock className="w-3.5 h-3.5 text-[#D9822B] shrink-0" />}
+                            {!isDirect && !isReadySoon && <Target className="w-3.5 h-3.5 text-[#685F53] shrink-0" />}
+                            <span>{eligibility.status}</span>
+                            <span className="font-normal text-[11px] font-mono opacity-80">· Min {company.readinessThreshold}% Readiness & {company.minDsaProblems}+ DSA</span>
+                          </div>
+                          <p className="text-xs leading-relaxed opacity-90 font-medium">{eligibility.reason}</p>
+                        </div>
+
+                        {/* Core Skills Required */}
+                        <div className="mb-3.5">
+                          <span className="text-[11px] font-pixel uppercase text-[#685F53] font-bold block mb-1.5">
+                            Core Technologies Tested
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {company.keySkills.map((sk, idx) => (
+                              <span key={idx} className="text-xs bg-[#F2EAD6] text-[#1E1B18] px-2 py-0.5 rounded border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] font-mono">
+                                {sk}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Interview Rounds Checklist */}
+                        <div className="mb-4 bg-[#F2EAD6] rounded-lg p-3 border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18]">
+                          <span className="text-[11px] font-pixel uppercase text-[#685F53] font-bold block mb-1.5">
+                            Hiring Process Rounds
+                          </span>
+                          <ul className="space-y-1 text-xs font-mono">
+                            {company.interviewRounds.map((rnd, idx) => (
+                              <li key={idx} className="flex items-start space-x-2 text-xs">
+                                <span className="text-[#2D6A4F] font-bold shrink-0">{idx + 1}.</span>
+                                <span className="text-[#1E1B18] font-medium">{rnd}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* Card Footer: Apply Link & Location */}
+                      <div className="pt-3 border-t-2 border-[#1E1B18]/15 flex items-center justify-between text-xs">
+                        <span className="text-[#685F53] font-mono text-xs">{company.location}</span>
+                        <a
+                          href={company.careersUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg bg-[#D9822B] text-white hover:bg-[#C07224] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-pixel font-bold text-xs flex items-center space-x-1.5 transition-all"
+                        >
+                          <span>Apply via Careers</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ===================================================================
             HUB 2: CERTIFIED COURSES (WITH FREE VERIFIED CREDENTIALS)
@@ -2389,56 +2881,105 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
           return (
             <div className="space-y-8">
-              <div className="border-b border-hairline pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="border-b-2 border-[#1E1B18]/15 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <span className="text-xs font-mono uppercase tracking-wider text-waypoint font-semibold">Verified Credentials</span>
-                  <h1 className="font-display text-3xl md:text-4xl font-semibold text-ink mt-1">Free Certified Courses Catalog</h1>
-                  <p className="text-xs md:text-sm text-ink-40 mt-1 max-w-xl">
+                  <span className="text-xs font-pixel uppercase tracking-wider text-[#D9822B] font-bold">Verified Credentials</span>
+                  <h1 className="font-pixel text-3xl md:text-4xl font-bold text-[#1E1B18] mt-1">Free Certified Courses Catalog</h1>
+                  <p className="text-xs md:text-sm text-[#685F53] mt-1 max-w-xl font-medium">
                     Accredited industry-standard curriculums offering <strong>100% free verifiable certificates and digital badges</strong> to strengthen your resume and LinkedIn profile.
                   </p>
                 </div>
 
                 {/* Search Input */}
                 <div className="relative w-full md:w-72">
-                  <Search className="w-4 h-4 text-ink-40 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-[#685F53] absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Search courses, skills, tools..."
                     value={courseSearchQuery}
                     onChange={(e) => setCourseSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 border border-hairline rounded-lg text-xs bg-paper focus:outline-none focus:border-ink placeholder:text-ink-40"
+                    className="w-full pl-9 pr-4 py-2 border-2 border-[#1E1B18] rounded-lg text-xs bg-[#FAF6EE] text-[#1E1B18] focus:outline-none focus:shadow-[2px_2px_0px_#1E1B18] placeholder:text-[#685F53]"
                   />
                   {courseSearchQuery && (
                     <button 
                       onClick={() => setCourseSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-40 hover:text-ink text-xs">
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#685F53] hover:text-[#1E1B18] text-xs">
                       ✕
                     </button>
                   )}
                 </div>
               </div>
 
+              {/* AWS Student Builder Campus Leader Spotlight Card */}
+              <div className="rounded-xl border-2 border-[#1E1B18] bg-[#FAF6EE] shadow-overworld p-5 sm:p-6 relative overflow-hidden">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+                  <div className="space-y-2 max-w-2xl">
+                    <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-md bg-[#D9822B] text-white border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-xs font-pixel font-bold">
+                      <span className="w-2 h-2 rounded-xs bg-white animate-pulse"></span>
+                      <span>AWS Student Builder · Campus Leader Initiative</span>
+                    </div>
+                    <h3 className="font-pixel text-xl sm:text-2xl font-bold text-[#1E1B18]">
+                      Accelerate Your Cloud Architecture Journey on AWS
+                    </h3>
+                    <p className="text-xs sm:text-sm text-[#685F53] leading-relaxed font-medium">
+                      As part of the AWS Student Builder program, access official zero-cost AWS cloud credentials including the <strong>AWS Certified Cloud Practitioner Essentials (CLF-C02)</strong> and the gamified <strong>AWS Cloud Quest 3D RPG</strong> with verifiable digital badges on Credly.
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <span className="text-xs bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] px-2.5 py-1 rounded-md font-mono text-[#1E1B18]">
+                        ☁️ 100% Free AWS Skill Builder Access
+                      </span>
+                      <span className="text-xs bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] px-2.5 py-1 rounded-md font-mono text-[#1E1B18]">
+                        🎮 Verifiable Credly Digital Badges
+                      </span>
+                      <span className="text-xs bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] px-2.5 py-1 rounded-md font-mono text-[#1E1B18]">
+                        🎓 AWS Educate Student Learning Pathways
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 shrink-0">
+                    <a
+                      href="https://explore.skillbuilder.aws/learn/course/external/view/elearning/134/aws-cloud-practitioner-essentials"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 rounded-lg bg-[#D9822B] hover:bg-[#C07224] text-white border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none font-pixel font-bold text-xs flex items-center justify-center space-x-1.5 transition-all"
+                    >
+                      <span>Launch AWS Skill Builder</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                    <a
+                      href="https://aws.amazon.com/training/digital/aws-cloud-quest/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 rounded-lg bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none font-pixel font-bold text-xs flex items-center justify-center space-x-1.5 transition-all"
+                    >
+                      <span>Play AWS Cloud Quest</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+
               {/* Study Hours & Credential Metric Bar */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-ink/5 border border-hairline rounded-xl p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld rounded-xl p-5">
                 <div className="space-y-1">
-                  <span className="text-[11px] font-mono uppercase text-ink-40 font-semibold">Certified Hours Earned</span>
+                  <span className="text-[11px] font-pixel uppercase text-[#685F53] font-bold">Certified Hours Earned</span>
                   <div className="flex items-baseline space-x-1.5">
-                    <span className="font-display text-2xl font-bold text-path">{certifiedHours}</span>
-                    <span className="text-xs text-ink-40 font-mono">/ {totalCatalogHours} Catalog Hours</span>
+                    <span className="font-pixel text-2xl font-bold text-[#2D6A4F]">{certifiedHours}</span>
+                    <span className="text-xs text-[#685F53] font-mono">/ {totalCatalogHours} Catalog Hours</span>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[11px] font-mono uppercase text-ink-40 font-semibold">Credentials Completed</span>
+                  <span className="text-[11px] font-pixel uppercase text-[#685F53] font-bold">Credentials Completed</span>
                   <div className="flex items-baseline space-x-1.5">
-                    <span className="font-display text-2xl font-bold text-ink">{certifiedCount}</span>
-                    <span className="text-xs text-ink-40 font-mono">/ {CERTIFIED_COURSES.length} Courses</span>
+                    <span className="font-pixel text-2xl font-bold text-[#1E1B18]">{certifiedCount}</span>
+                    <span className="text-xs text-[#685F53] font-mono">/ {CERTIFIED_COURSES.length} Courses</span>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[11px] font-mono uppercase text-ink-40 font-semibold">Currently In Progress</span>
+                  <span className="text-[11px] font-pixel uppercase text-[#685F53] font-bold">Currently In Progress</span>
                   <div className="flex items-baseline space-x-1.5">
-                    <span className="font-display text-2xl font-bold text-waypoint">{inProgressCount}</span>
-                    <span className="text-xs text-ink-40 font-mono">Active Tracks</span>
+                    <span className="font-pixel text-2xl font-bold text-[#D9822B]">{inProgressCount}</span>
+                    <span className="text-xs text-[#685F53] font-mono">Active Tracks</span>
                   </div>
                 </div>
               </div>
@@ -2457,12 +2998,12 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                   <button
                     key={cat}
                     onClick={() => setCertFilterCategory(cat)}
-                    className={`text-xs px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 ${
+                    className={`text-xs px-3 py-1.5 rounded-lg border-2 border-[#1E1B18] font-pixel font-bold transition-all flex items-center space-x-1.5 ${
                       certFilterCategory === cat 
-                        ? "bg-ink text-paper font-medium shadow-sm" 
-                        : "border border-hairline text-ink hover:bg-hairline/40"
+                        ? "bg-[#1E1B18] text-[#FAF6EE] shadow-[2px_2px_0px_#1E1B18]" 
+                        : "bg-[#FAF6EE] text-[#1E1B18] hover:bg-[#EAE0CA]"
                     }`}>
-                    {cat === "My Track Recommended" && <Sparkles className="w-3.5 h-3.5 text-waypoint" />}
+                    {cat === "My Track Recommended" && <Sparkles className="w-3.5 h-3.5 text-[#D9822B]" />}
                     <span>{cat === "My Track Recommended" ? "✨ Recommended for You" : cat}</span>
                   </button>
                 ))}
@@ -2471,12 +3012,12 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               {/* Courses Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {filteredCourses.length === 0 ? (
-                  <div className="md:col-span-2 text-center py-12 border border-dashed border-hairline rounded-xl space-y-2">
-                    <BookOpen className="w-8 h-8 text-ink-40 mx-auto" />
-                    <p className="text-xs text-ink-40">No courses match your search "{courseSearchQuery}".</p>
+                  <div className="md:col-span-2 text-center py-12 border-2 border-dashed border-[#1E1B18]/30 rounded-xl space-y-2 bg-[#FAF6EE]">
+                    <BookOpen className="w-8 h-8 text-[#685F53] mx-auto" />
+                    <p className="text-xs text-[#685F53] font-mono">No courses match your search "{courseSearchQuery}".</p>
                     <button 
                       onClick={() => { setCourseSearchQuery(""); setCertFilterCategory("All"); }}
-                      className="text-xs text-ink underline font-medium">
+                      className="text-xs text-[#1E1B18] underline font-pixel font-bold">
                       Reset Filters
                     </button>
                   </div>
@@ -2494,58 +3035,50 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     return (
                       <div 
                         key={course.id}
-                        className={`border rounded-xl p-6 bg-paper flex flex-col justify-between space-y-4 transition-all ${
-                          isCertified 
-                            ? "border-path/50 bg-path/5 shadow-sm" 
-                            : isInProgress
-                            ? "border-waypoint/60 bg-waypoint/5 shadow-sm"
-                            : isTradeRecommended
-                            ? "border-path/30 bg-paper hover:border-path"
-                            : "border-hairline hover:border-ink/50"
-                        }`}>
+                        className={`border-2 border-[#1E1B18] rounded-xl p-6 bg-[#FAF6EE] shadow-overworld flex flex-col justify-between space-y-4 transition-all hover:translate-x-[-1px] hover:translate-y-[-1px]`}>
                         <div>
                           {isTradeRecommended && (
                             <div className="mb-2">
-                              <span className="bg-path/10 text-path text-[10px] font-semibold font-mono px-2 py-0.5 rounded border border-path/20 inline-flex items-center space-x-1">
+                              <span className="bg-[#2D6A4F] text-white text-[10px] font-bold font-pixel px-2 py-0.5 rounded border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] inline-flex items-center space-x-1">
                                 <span>★</span>
                                 <span>Recommended for {cleanBadge(selectedTrade.title)}</span>
                               </span>
                             </div>
                           )}
                           <div className="flex items-center justify-between gap-2 mb-2">
-                            <span className="text-xs font-mono text-ink-40 uppercase font-semibold">
+                            <span className="text-xs font-mono text-[#685F53] uppercase font-semibold">
                               {course.provider} · {course.duration}
                             </span>
-                            <span className="bg-waypoint/15 text-ink text-[11px] font-semibold px-2 py-0.5 rounded font-mono">
+                            <span className="bg-[#F2EAD6] border-2 border-[#1E1B18] text-[#1E1B18] text-[11px] font-bold px-2 py-0.5 rounded font-pixel">
                               {course.certificateType}
                             </span>
                           </div>
 
-                          <h3 className="font-display text-xl font-semibold text-ink">{course.title}</h3>
-                          <p className="text-xs text-ink-40 mt-2 leading-relaxed">{course.description}</p>
+                          <h3 className="font-pixel text-xl font-bold text-[#1E1B18]">{course.title}</h3>
+                          <p className="text-xs text-[#685F53] mt-2 leading-relaxed font-medium">{course.description}</p>
 
-                          <div className="mt-4 pt-3 border-t border-hairline space-y-1.5">
-                            <span className="text-[11px] font-mono uppercase text-ink-40 block font-medium">Core Competencies:</span>
-                            <ul className="text-xs text-ink space-y-1">
+                          <div className="mt-4 pt-3 border-t-2 border-[#1E1B18]/15 space-y-1.5">
+                            <span className="text-[11px] font-pixel uppercase text-[#685F53] block font-bold">Core Competencies:</span>
+                            <ul className="text-xs text-[#1E1B18] space-y-1 font-mono">
                               {course.whatYouLearn.slice(0, 3).map((item, i) => (
                                 <li key={i} className="flex items-start space-x-1.5">
-                                  <span className="text-path font-bold">✓</span>
-                                  <span className="text-ink-40">{item}</span>
+                                  <span className="text-[#2D6A4F] font-bold">✓</span>
+                                  <span className="text-[#685F53]">{item}</span>
                                 </li>
                               ))}
                             </ul>
                           </div>
                         </div>
 
-                        <div className="pt-4 border-t border-hairline flex flex-wrap items-center justify-between gap-2">
+                        <div className="pt-4 border-t-2 border-[#1E1B18]/15 flex flex-wrap items-center justify-between gap-2">
                           <button 
                             onClick={() => handleToggleCourseStatus(course.id)}
-                            className={`text-xs px-3 py-2 rounded-lg flex items-center space-x-1.5 transition-colors ${
+                            className={`text-xs px-3 py-2 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center space-x-1.5 transition-all font-pixel font-bold ${
                               isCertified 
-                                ? "bg-path text-paper font-medium" 
+                                ? "bg-[#2D6A4F] text-white" 
                                 : isInProgress
-                                ? "bg-waypoint/20 text-ink border border-waypoint font-medium"
-                                : "border border-hairline text-ink-40 hover:text-ink hover:bg-hairline/30"
+                                ? "bg-[#D9822B] text-white"
+                                : "bg-[#F2EAD6] text-[#1E1B18] hover:bg-[#EAE0CA]"
                             }`}>
                             {isCertified ? (
                               <>
@@ -2554,7 +3087,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                               </>
                             ) : isInProgress ? (
                               <>
-                                <Clock className="w-3.5 h-3.5 text-ink" />
+                                <Clock className="w-3.5 h-3.5 text-white" />
                                 <span>In Progress · Mark Certified</span>
                               </>
                             ) : (
@@ -2569,7 +3102,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                             href={course.enrollmentUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all">
+                            className="bg-[#2D6A4F] hover:bg-[#245640] text-white text-xs font-bold font-pixel px-4 py-2 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center space-x-1.5 transition-all">
                             <span>Enroll Free & Certify</span>
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
@@ -2618,64 +3151,64 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="bg-paper border border-hairline px-3 py-1.5 rounded-lg text-xs font-mono text-ink-40 flex items-center space-x-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-path" />
+                  <div className="bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] px-3 py-1.5 rounded-lg text-xs font-pixel font-bold text-[#1E1B18] flex items-center space-x-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#2D6A4F]" />
                     <span><strong>{completedCount}</strong>/{milestones.length} Cleared ({progressPct}%)</span>
                   </div>
-                  <div className="bg-paper border border-hairline px-3 py-1.5 rounded-lg text-xs font-mono text-ink-40">
+                  <div className="bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] px-3 py-1.5 rounded-lg text-xs font-pixel font-bold text-[#685F53]">
                     <span>{completedHours}/{totalHours} Hours</span>
                   </div>
                 </div>
               </div>
 
               {/* Analyzed Timeline Progress Bar */}
-              <div className="bg-paper border border-hairline rounded-xl p-4 space-y-3 shadow-xs">
-                <div className="flex items-center justify-between text-xs font-mono text-ink-40">
-                  <span className="font-semibold text-ink">12-WEEK TIMELINE PACING</span>
+              <div className="bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld rounded-xl p-5 space-y-3">
+                <div className="flex items-center justify-between text-xs font-pixel font-bold text-[#685F53]">
+                  <span className="text-[#1E1B18]">12-WEEK TIMELINE PACING</span>
                   <span>{progressPct}% Completed</span>
                 </div>
 
-                <div className="w-full bg-hairline/60 rounded-full h-2.5 overflow-hidden">
+                <div className="w-full bg-[#EAE0CA] border-2 border-[#1E1B18] rounded-sm h-3.5 overflow-hidden">
                   <div 
-                    className="bg-path h-full rounded-full transition-all duration-500"
+                    className="uiverse-progress-quest uiverse-progress-striped h-full transition-all duration-500"
                     style={{ width: `${Math.max(5, progressPct)}%` }}
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 text-[11px] font-mono text-ink-40 pt-1">
+                <div className="grid grid-cols-3 gap-2 text-[11px] font-pixel text-[#685F53] pt-1">
                   <div className="text-left">
-                    <span className="block font-semibold text-ink">Phase 1 (W1–4)</span>
+                    <span className="block font-bold text-[#1E1B18]">Phase 1 (W1–4)</span>
                     <span>Foundations</span>
                   </div>
                   <div className="text-center">
-                    <span className="block font-semibold text-ink">Phase 2 (W5–8)</span>
+                    <span className="block font-bold text-[#1E1B18]">Phase 2 (W5–8)</span>
                     <span>Applied Systems</span>
                   </div>
                   <div className="text-right">
-                    <span className="block font-semibold text-ink">Phase 3 (W9–12)</span>
-                    <span>Production & Interviews</span>
+                    <span className="block font-bold text-[#1E1B18]">Phase 3 (W9–12)</span>
+                    <span>Production & Placement</span>
                   </div>
                 </div>
               </div>
 
               {/* Interactive Channel & Phase Filter Bars */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-hairline/20 p-2.5 rounded-xl border border-hairline">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F2EAD6] p-3 rounded-xl border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18]">
                 {/* Channel Filter Pills */}
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-mono uppercase text-ink-40 mr-1 font-semibold">Channel:</span>
+                  <span className="text-[11px] font-pixel uppercase text-[#685F53] mr-1 font-bold">Channel:</span>
                   {[
                     { id: "all", label: "All Channels" },
                     { id: "theory", label: "🧠 Core Theory" },
-                    { id: "project", label: "💻 Hands-on Projects" },
+                    { id: "project", label: "💻 Projects" },
                     { id: "interview", label: "⚡ Interview & DSA" }
                   ].map((c) => (
                     <button
                       key={c.id}
                       onClick={() => setActiveRoadmapChannel(c.id as any)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-pixel font-bold border-2 border-[#1E1B18] transition-all ${
                         activeRoadmapChannel === c.id
-                          ? "bg-ink text-paper shadow-sm"
-                          : "bg-paper text-ink-40 hover:text-ink border border-hairline"
+                          ? "bg-[#1E1B18] text-[#FAF6EE] shadow-[2px_2px_0px_#1E1B18]"
+                          : "bg-[#FAF6EE] text-[#1E1B18] hover:bg-[#EAE0CA]"
                       }`}>
                       {c.label}
                     </button>
@@ -2684,7 +3217,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
                 {/* Phase Filter Dropdown / Pills */}
                 <div className="flex items-center space-x-1.5">
-                  <span className="text-[11px] font-mono uppercase text-ink-40 mr-1 font-semibold">Phase:</span>
+                  <span className="text-[11px] font-pixel uppercase text-[#685F53] mr-1 font-bold">Phase:</span>
                   {[
                     { id: "all", label: "All 12 Wks" },
                     { id: "Phase 1: Foundations", label: "P1 (W1–4)" },
@@ -2694,10 +3227,10 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     <button
                       key={p.id}
                       onClick={() => setActiveRoadmapPhase(p.id)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-mono transition-all ${
+                      className={`px-2 py-0.5 rounded text-[11px] font-pixel border-2 border-[#1E1B18] transition-all ${
                         activeRoadmapPhase === p.id
-                          ? "bg-path/15 text-path font-bold border border-path/30"
-                          : "text-ink-40 hover:text-ink"
+                          ? "bg-[#D9822B] text-white font-bold shadow-[1px_1px_0px_#1E1B18]"
+                          : "bg-[#FAF6EE] text-[#685F53] hover:text-[#1E1B18]"
                       }`}>
                       {p.label}
                     </button>
@@ -2713,12 +3246,12 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
                   return (
                     <div key={phaseName} className="space-y-3">
-                      <div className="flex items-center space-x-2 text-xs font-mono text-ink-40 uppercase tracking-wider font-semibold border-b border-hairline pb-1.5">
-                        <span className="w-2 h-2 rounded-full bg-waypoint"></span>
+                      <div className="flex items-center space-x-2 text-xs font-pixel text-[#1E1B18] uppercase tracking-wider font-bold border-b-2 border-[#1E1B18]/15 pb-1.5">
+                        <span className="w-2.5 h-2.5 rounded-xs bg-[#D9822B]"></span>
                         <span>{phaseName}</span>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-3.5">
+                      <div className="grid grid-cols-1 gap-4">
                         {phaseMilestones.map((milestone) => {
                           const isDone = milestone.status === "completed";
                           const isCurrent = milestone.status === "current";
@@ -2727,43 +3260,43 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                           return (
                             <div 
                               key={milestone.id}
-                              className={`border rounded-xl p-4 bg-paper transition-all shadow-xs ${
+                              className={`border-2 border-[#1E1B18] rounded-xl p-5 bg-[#FAF6EE] transition-all shadow-overworld ${
                                 isCurrent 
-                                  ? "border-waypoint ring-1 ring-waypoint/20" 
+                                  ? "ring-2 ring-[#D9822B]" 
                                   : isDone
-                                  ? "border-path/40 bg-path/5"
-                                  : "border-hairline"
+                                  ? "bg-[#FAF6EE]"
+                                  : "bg-[#FAF6EE]"
                               }`}>
                               
                               {/* Top Meta Bar */}
                               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                                 <div className="flex items-center space-x-2">
-                                  <span className="bg-ink/5 text-ink font-mono text-xs font-semibold px-2 py-0.5 rounded border border-hairline">
+                                  <span className="bg-[#F2EAD6] text-[#1E1B18] font-pixel text-xs font-bold px-2 py-0.5 rounded border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18]">
                                     {milestone.weeks || `Week ${milestone.order * 2 - 1}-${milestone.order * 2}`}
                                   </span>
-                                  <span className="text-xs font-mono text-ink-40 uppercase font-semibold">
+                                  <span className="text-xs font-pixel text-[#685F53] uppercase font-bold">
                                     {milestone.category}
                                   </span>
                                   {isDone && (
-                                    <span className="bg-path/10 text-path text-[11px] font-semibold font-mono px-2 py-0.5 rounded">
+                                    <span className="bg-[#2D6A4F] text-white text-[11px] font-bold font-pixel px-2 py-0.5 rounded border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18]">
                                       ✓ Completed
                                     </span>
                                   )}
                                   {isCurrent && (
-                                    <span className="bg-waypoint/15 text-ink text-[11px] font-semibold font-mono px-2 py-0.5 rounded">
+                                    <span className="bg-[#D9822B] text-white text-[11px] font-bold font-pixel px-2 py-0.5 rounded border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18]">
                                       Current Waypoint
                                     </span>
                                   )}
                                 </div>
 
-                                <div className="flex items-center space-x-3 text-xs text-ink-40 font-mono">
+                                <div className="flex items-center space-x-3 text-xs text-[#685F53] font-mono">
                                   <span>{syllabusCheckedCount}/{milestone.resource.syllabus.length} Topics Studied</span>
                                   <span>·</span>
                                   <span>Est. {milestone.estimatedHours}h</span>
                                   <button
                                     onClick={() => handleToggleMilestone(milestone.id)}
-                                    className={`px-2 py-0.5 rounded text-[11px] font-medium border ${
-                                      isDone ? "border-path text-path hover:bg-path/10" : "border-hairline text-ink-40 hover:border-ink"
+                                    className={`px-2.5 py-1 rounded text-xs font-pixel font-bold border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all ${
+                                      isDone ? "bg-[#2D6A4F] text-white" : "bg-[#FAF6EE] text-[#1E1B18] hover:bg-[#EAE0CA]"
                                     }`}>
                                     {isDone ? "Mark Pending" : "Mark Cleared"}
                                   </button>
@@ -2771,35 +3304,35 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                               </div>
 
                               {/* Title & 1-line Summary */}
-                              <h3 className="font-display text-lg font-semibold text-ink">{milestone.title}</h3>
-                              <p className="text-xs text-ink-40 mt-1 leading-relaxed">
+                              <h3 className="font-pixel text-lg font-bold text-[#1E1B18]">{milestone.title}</h3>
+                              <p className="text-xs text-[#685F53] mt-1 leading-relaxed font-medium">
                                 {milestone.conciseSummary || milestone.whyMatters}
                               </p>
 
                               {/* Channelized Deliverables Badges */}
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3 pt-3 border-t border-hairline">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3 pt-3 border-t-2 border-[#1E1B18]/15">
                                 {(activeRoadmapChannel === "all" || activeRoadmapChannel === "theory") && (
-                                  <div className="bg-hairline/20 p-2.5 rounded-lg border border-hairline text-xs space-y-1">
-                                    <span className="text-[10px] font-mono uppercase text-path font-bold block">🧠 Theory Channel</span>
-                                    <p className="text-ink text-[11px] leading-relaxed font-medium">
+                                  <div className="bg-[#F2EAD6] p-3 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-xs space-y-1">
+                                    <span className="text-[10px] font-pixel uppercase text-[#2D6A4F] font-bold block">🧠 Theory Channel</span>
+                                    <p className="text-[#1E1B18] text-[11px] leading-relaxed font-medium">
                                       {milestone.channels?.theory || "Core syntax, computational fundamentals, and mental models."}
                                     </p>
                                   </div>
                                 )}
 
                                 {(activeRoadmapChannel === "all" || activeRoadmapChannel === "project") && (
-                                  <div className="bg-hairline/20 p-2.5 rounded-lg border border-hairline text-xs space-y-1">
-                                    <span className="text-[10px] font-mono uppercase text-waypoint font-bold block">💻 Project Deliverable</span>
-                                    <p className="text-ink text-[11px] leading-relaxed font-medium">
+                                  <div className="bg-[#F2EAD6] p-3 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-xs space-y-1">
+                                    <span className="text-[10px] font-pixel uppercase text-[#D9822B] font-bold block">💻 Project Deliverable</span>
+                                    <p className="text-[#1E1B18] text-[11px] leading-relaxed font-medium">
                                       {milestone.channels?.project || "Build and commit a verified repository feature or API."}
                                     </p>
                                   </div>
                                 )}
 
                                 {(activeRoadmapChannel === "all" || activeRoadmapChannel === "interview") && (
-                                  <div className="bg-hairline/20 p-2.5 rounded-lg border border-hairline text-xs space-y-1">
-                                    <span className="text-[10px] font-mono uppercase text-ink font-bold block">⚡ Interview & DSA</span>
-                                    <p className="text-ink text-[11px] leading-relaxed font-medium">
+                                  <div className="bg-[#F2EAD6] p-3 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-xs space-y-1">
+                                    <span className="text-[10px] font-pixel uppercase text-[#2A6F97] font-bold block">⚡ Interview & DSA</span>
+                                    <p className="text-[#1E1B18] text-[11px] leading-relaxed font-medium">
                                       {milestone.channels?.interviewDsa || "Targeted problem patterns and technical interview scenarios."}
                                     </p>
                                   </div>
@@ -2807,24 +3340,24 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                               </div>
 
                               {/* Resource Masterclass & Checklist Bar */}
-                              <div className="mt-3 pt-3 border-t border-hairline flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                                <div className="text-ink-40">
-                                  <span className="font-medium text-ink">{milestone.resource.name}</span>
+                              <div className="mt-3 pt-3 border-t-2 border-[#1E1B18]/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                <div className="text-[#685F53]">
+                                  <span className="font-bold text-[#1E1B18]">{milestone.resource.name}</span>
                                   <span className="text-[11px] font-mono ml-2">({milestone.resource.creator} · {milestone.resource.duration})</span>
                                 </div>
 
                                 <div className="flex items-center space-x-2 shrink-0">
                                   <button
                                     onClick={() => setActiveMasterclassModal(milestone)}
-                                    className="bg-hairline hover:bg-hairline/80 text-ink text-xs font-medium px-2.5 py-1.5 rounded-md flex items-center space-x-1">
-                                    <PlayCircle className="w-3.5 h-3.5 text-path" />
+                                    className="bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-xs font-pixel font-bold px-2.5 py-1.5 rounded-md flex items-center space-x-1 transition-all">
+                                    <PlayCircle className="w-3.5 h-3.5 text-[#2D6A4F]" />
                                     <span>Studio View</span>
                                   </button>
                                   <a 
                                     href={milestone.resource.youtubeUrl} 
                                     target="_blank" 
                                     rel="noopener noreferrer"
-                                    className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-2.5 py-1.5 rounded-md flex items-center space-x-1 shadow-xs">
+                                    className="bg-[#1E1B18] hover:bg-[#333] text-[#FAF6EE] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-xs font-pixel font-bold px-2.5 py-1.5 rounded-md flex items-center space-x-1 transition-all">
                                     <Play className="w-3 h-3 fill-current" />
                                     <span>Watch Video</span>
                                     <ExternalLink className="w-3 h-3 ml-0.5" />
@@ -2833,20 +3366,20 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                               </div>
 
                               {/* Compact Topic Checklist */}
-                              <div className="mt-2.5 pt-2 border-t border-hairline/60 grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
+                              <div className="mt-2.5 pt-2 border-t-2 border-[#1E1B18]/15 grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs font-mono">
                                 {milestone.resource.syllabus.map((topic, tIdx) => {
                                   const isChecked = !!completedSyllabusItems[`${milestone.id}-${tIdx}`];
                                   return (
                                     <div 
                                       key={tIdx}
                                       onClick={() => handleToggleSyllabusItem(`${milestone.id}-${tIdx}`, milestone.id)}
-                                      className={`flex items-center space-x-2 p-1.5 rounded cursor-pointer transition-colors ${
-                                        isChecked ? "bg-path/10 text-path font-medium" : "hover:bg-hairline/30 text-ink-40"
+                                      className={`flex items-center space-x-2 p-1.5 rounded border border-[#1E1B18]/20 cursor-pointer transition-colors ${
+                                        isChecked ? "bg-[#2D6A4F]/15 text-[#2D6A4F] font-bold" : "hover:bg-[#EAE0CA] text-[#685F53]"
                                       }`}>
                                       {isChecked ? (
-                                        <CheckSquare className="w-3.5 h-3.5 text-path shrink-0" />
+                                        <CheckSquare className="w-3.5 h-3.5 text-[#2D6A4F] shrink-0" />
                                       ) : (
-                                        <Square className="w-3.5 h-3.5 text-ink-40 shrink-0" />
+                                        <Square className="w-3.5 h-3.5 text-[#685F53] shrink-0" />
                                       )}
                                       <span className="text-[11px] truncate">{topic}</span>
                                     </div>
@@ -2864,28 +3397,28 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
               {/* Masterclass Studio Modal */}
               {activeMasterclassModal && (
-                <div className="fixed inset-0 z-50 bg-ink/50 backdrop-blur-sm flex items-center justify-center p-4">
-                  <div className="bg-paper border border-hairline rounded-xl max-w-xl w-full p-5 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
-                    <div className="flex items-center justify-between border-b border-hairline pb-2">
+                <div className="fixed inset-0 z-50 bg-[#1E1B18]/70 backdrop-blur-sm flex items-center justify-center p-4">
+                  <div className="bg-[#FAF6EE] border-2 border-[#1E1B18] rounded-xl max-w-xl w-full p-5 space-y-4 shadow-overworld-lg max-h-[85vh] overflow-y-auto">
+                    <div className="flex items-center justify-between border-b-2 border-[#1E1B18]/15 pb-2">
                       <div className="flex items-center space-x-2">
-                        <PlayCircle className="w-4 h-4 text-waypoint" />
-                        <h3 className="font-display text-base font-semibold text-ink">Masterclass Studio</h3>
+                        <PlayCircle className="w-4 h-4 text-[#D9822B]" />
+                        <h3 className="font-pixel text-base font-bold text-[#1E1B18]">Masterclass Studio</h3>
                       </div>
                       <button 
                         onClick={() => setActiveMasterclassModal(null)}
-                        className="text-ink-40 hover:text-ink text-xs font-mono">
+                        className="text-[#685F53] hover:text-[#1E1B18] text-xs font-pixel font-bold">
                         ✕ Close
                       </button>
                     </div>
 
                     <div className="space-y-1">
-                      <span className="text-[11px] font-mono text-ink-40 block">{activeMasterclassModal.resource.creator} · {activeMasterclassModal.resource.duration}</span>
-                      <h4 className="font-display text-base font-bold text-ink">{activeMasterclassModal.resource.name}</h4>
-                      <p className="text-xs text-ink-40 leading-relaxed">{activeMasterclassModal.conciseSummary || activeMasterclassModal.whyMatters}</p>
+                      <span className="text-[11px] font-mono text-[#685F53] block">{activeMasterclassModal.resource.creator} · {activeMasterclassModal.resource.duration}</span>
+                      <h4 className="font-pixel text-base font-bold text-[#1E1B18]">{activeMasterclassModal.resource.name}</h4>
+                      <p className="text-xs text-[#685F53] leading-relaxed font-medium">{activeMasterclassModal.conciseSummary || activeMasterclassModal.whyMatters}</p>
                     </div>
 
-                    <div className="border border-hairline rounded-lg p-3 bg-ink/5 space-y-2">
-                      <span className="text-[11px] font-mono uppercase text-ink font-semibold block">Module Tracker:</span>
+                    <div className="border-2 border-[#1E1B18] rounded-lg p-3 bg-[#F2EAD6] space-y-2">
+                      <span className="text-[11px] font-pixel uppercase text-[#1E1B18] font-bold block">Module Tracker:</span>
                       <div className="space-y-1.5">
                         {activeMasterclassModal.resource.syllabus.map((item, idx) => {
                           const isChecked = !!completedSyllabusItems[`${activeMasterclassModal.id}-${idx}`];
@@ -2893,11 +3426,11 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                             <div 
                               key={idx}
                               onClick={() => handleToggleSyllabusItem(`${activeMasterclassModal.id}-${idx}`, activeMasterclassModal.id)}
-                              className="flex items-center justify-between p-2 rounded bg-paper border border-hairline cursor-pointer hover:border-ink text-xs">
-                              <span className={isChecked ? "line-through text-ink-40 text-[11px]" : "text-ink text-[11px]"}>
+                              className="flex items-center justify-between p-2 rounded bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18] cursor-pointer hover:bg-[#EAE0CA] text-xs">
+                              <span className={isChecked ? "line-through text-[#685F53] text-[11px]" : "text-[#1E1B18] font-medium text-[11px]"}>
                                 {idx + 1}. {item}
                               </span>
-                              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isChecked ? "bg-path/10 text-path font-bold" : "bg-hairline text-ink-40"}`}>
+                              <span className={`text-[10px] font-pixel px-1.5 py-0.5 rounded border border-[#1E1B18] ${isChecked ? "bg-[#2D6A4F] text-white font-bold" : "bg-[#F2EAD6] text-[#685F53]"}`}>
                                 {isChecked ? "✓ Studied" : "Mark"}
                               </span>
                             </div>
@@ -2909,14 +3442,14 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     <div className="flex items-center justify-between pt-1">
                       <button 
                         onClick={() => setActiveMasterclassModal(null)}
-                        className="border border-hairline px-3 py-1.5 rounded-lg text-xs text-ink-40 hover:text-ink">
+                        className="border-2 border-[#1E1B18] px-3 py-1.5 rounded-lg text-xs font-pixel font-bold text-[#1E1B18] hover:bg-[#EAE0CA]">
                         Close
                       </button>
                       <a 
-                        href={activeMasterclassModal.resource.youtubeUrl}
+                        href={activeMasterclassModal.resource.youtubeUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-3.5 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm">
+                        className="bg-[#D9822B] hover:bg-[#C07224] text-white border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-xs font-pixel font-bold px-3.5 py-1.5 rounded-lg flex items-center space-x-1 transition-all">
                         <Play className="w-3 h-3 fill-current" />
                         <span>Watch on YouTube</span>
                         <ExternalLink className="w-3 h-3 ml-1" />
@@ -2934,11 +3467,11 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         =================================================================== */}
         {appView === "coding" && (
           <div className="space-y-6">
-            <div className="border-b border-hairline pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="border-b-2 border-[#1E1B18]/15 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Coding Challenge Workbench</span>
-                <h1 className="font-display text-3xl font-semibold text-ink mt-1">Live Technical Problem Solving</h1>
-                <p className="text-ink-40 text-xs md:text-sm mt-1">
+                <span className="text-xs font-pixel uppercase tracking-wider text-[#2D6A4F] font-bold">Coding Challenge Workbench</span>
+                <h1 className="font-pixel text-3xl font-bold text-[#1E1B18] mt-1">Live Technical Problem Solving</h1>
+                <p className="text-[#685F53] text-xs md:text-sm mt-1 font-medium">
                   Test your Python implementation, execute against test suites, and request instant Gemini AI senior code reviews.
                 </p>
               </div>
@@ -2955,16 +3488,16 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     <button
                       key={ch.id}
                       onClick={() => setActiveChallenge(ch)}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-mono transition-all flex items-center space-x-1 ${
+                      className={`text-xs px-3 py-1.5 rounded-lg font-pixel font-bold transition-all border-2 border-[#1E1B18] flex items-center space-x-1 ${
                         activeChallenge.id === ch.id 
-                          ? "bg-ink text-paper font-semibold shadow-sm" 
+                          ? "bg-[#1E1B18] text-[#FAF6EE] shadow-[2px_2px_0px_#1E1B18]" 
                           : isMatch && ch.tradeTrack !== "all"
-                          ? "border border-path/50 text-ink bg-path/5 hover:bg-path/10 font-medium"
-                          : "border border-hairline text-ink hover:bg-hairline/40"
+                          ? "text-[#1E1B18] bg-[#FAF6EE] hover:bg-[#EAE0CA]"
+                          : "text-[#685F53] bg-[#FAF6EE] hover:bg-[#EAE0CA]"
                       }`}>
                       <span>{idx + 1}. {ch.shortTitle}</span>
                       {isMatch && ch.tradeTrack !== "all" && (
-                        <span className="text-[10px] text-path font-bold">★</span>
+                        <span className="text-[10px] text-[#D9822B] font-bold">★</span>
                       )}
                     </button>
                   );
@@ -2976,33 +3509,33 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
               {/* Left Column: Problem Statement */}
-              <div className="border border-hairline rounded-xl p-6 bg-paper space-y-4">
+              <div className="border-2 border-[#1E1B18] rounded-xl p-6 bg-[#FAF6EE] shadow-overworld space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono uppercase text-ink-40 font-semibold">{activeChallenge.category}</span>
-                  <span className="bg-waypoint/15 text-ink text-xs font-semibold px-2 py-0.5 rounded font-mono">
+                  <span className="text-xs font-pixel uppercase text-[#685F53] font-bold">{activeChallenge.category}</span>
+                  <span className="bg-[#F2EAD6] border-2 border-[#1E1B18] text-[#1E1B18] text-xs font-pixel font-bold px-2 py-0.5 rounded">
                     {activeChallenge.difficulty} · {activeChallenge.timeLimitMinutes} min
                   </span>
                 </div>
 
-                <h3 className="font-display text-2xl font-semibold text-ink">{activeChallenge.title}</h3>
-                <div className="text-xs text-ink leading-relaxed whitespace-pre-line">
+                <h3 className="font-pixel text-2xl font-bold text-[#1E1B18]">{activeChallenge.title}</h3>
+                <div className="text-xs text-[#1E1B18] leading-relaxed whitespace-pre-line font-mono">
                   {activeChallenge.description}
                 </div>
 
-                <div className="space-y-2 pt-2 border-t border-hairline">
-                  <span className="text-xs font-mono uppercase text-ink-40 font-semibold block">Examples:</span>
+                <div className="space-y-2 pt-3 border-t-2 border-[#1E1B18]/15">
+                  <span className="text-xs font-pixel uppercase text-[#685F53] font-bold block">Examples:</span>
                   {activeChallenge.examples.map((ex, i) => (
-                    <div key={i} className="bg-hairline/20 p-3 rounded-lg text-xs font-mono space-y-1">
-                      <div><strong className="text-ink">Input:</strong> <span className="text-ink-40">{ex.input}</span></div>
-                      <div><strong className="text-ink">Output:</strong> <span className="text-path font-bold">{ex.output}</span></div>
-                      {ex.explanation && <div className="text-[11px] text-ink-40 italic mt-0.5">{ex.explanation}</div>}
+                    <div key={i} className="bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] p-3 rounded-lg text-xs font-mono space-y-1">
+                      <div><strong className="text-[#1E1B18]">Input:</strong> <span className="text-[#685F53]">{ex.input}</span></div>
+                      <div><strong className="text-[#1E1B18]">Output:</strong> <span className="text-[#2D6A4F] font-bold">{ex.output}</span></div>
+                      {ex.explanation && <div className="text-[11px] text-[#685F53] italic mt-0.5">{ex.explanation}</div>}
                     </div>
                   ))}
                 </div>
 
-                <div className="pt-2 border-t border-hairline">
-                  <span className="text-xs font-mono uppercase text-ink-40 font-semibold block mb-1">Constraints:</span>
-                  <ul className="text-xs text-ink-40 space-y-1 list-disc list-inside font-mono">
+                <div className="pt-3 border-t-2 border-[#1E1B18]/15">
+                  <span className="text-xs font-pixel uppercase text-[#685F53] font-bold block mb-1">Constraints:</span>
+                  <ul className="text-xs text-[#685F53] space-y-1 list-disc list-inside font-mono">
                     {activeChallenge.constraints.map((c, i) => (
                       <li key={i}>{c}</li>
                     ))}
@@ -3012,15 +3545,15 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
               {/* Right Column: Code Editor & AI Review */}
               <div className="flex flex-col space-y-4">
-                <div className="border border-hairline rounded-xl bg-paper p-4 flex flex-col space-y-3 flex-1">
-                  <div className="flex items-center justify-between pb-2 border-b border-hairline">
-                    <span className="text-xs font-mono text-ink-40 flex items-center space-x-1.5">
-                      <Terminal className="w-3.5 h-3.5" />
+                <div className="border-2 border-[#1E1B18] rounded-xl bg-[#FAF6EE] p-5 shadow-overworld flex flex-col space-y-3 flex-1">
+                  <div className="flex items-center justify-between pb-2 border-b-2 border-[#1E1B18]/15">
+                    <span className="text-xs font-mono text-[#685F53] flex items-center space-x-1.5 font-bold">
+                      <Terminal className="w-3.5 h-3.5 text-[#2A6F97]" />
                       <span>solution.py ({activeChallenge.functionName})</span>
                     </span>
                     <button 
                       onClick={() => setCandidateCode(activeChallenge.starterCode)}
-                      className="text-xs font-mono text-ink-40 hover:text-ink flex items-center space-x-1">
+                      className="text-xs font-pixel text-[#685F53] hover:text-[#1E1B18] flex items-center space-x-1 font-bold">
                       <RotateCcw className="w-3 h-3" />
                       <span>Reset Starter Code</span>
                     </button>
@@ -3030,7 +3563,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     rows={12}
                     value={candidateCode}
                     onChange={(e) => setCandidateCode(e.target.value)}
-                    className="w-full bg-ink/5 border border-hairline rounded-lg p-3.5 text-xs font-mono text-ink focus:outline-none focus:border-ink resize-none flex-1 leading-relaxed font-mono"
+                    className="w-full bg-[#F2EAD6] border-2 border-[#1E1B18] rounded-lg p-3.5 text-xs font-mono text-[#1E1B18] focus:outline-none focus:shadow-[2px_2px_0px_#1E1B18] resize-none flex-1 leading-relaxed"
                     spellCheck={false}
                   />
 
@@ -3038,16 +3571,16 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     <button 
                       onClick={handleRunTestCases}
                       disabled={isExecutingTests}
-                      className="bg-hairline hover:bg-hairline/80 text-ink text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-1.5 transition-colors">
-                      <Play className="w-3.5 h-3.5 fill-current" />
+                      className="bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-xs font-pixel font-bold px-4 py-2.5 rounded-lg flex items-center space-x-1.5 transition-all">
+                      <Play className="w-3.5 h-3.5 fill-current text-[#2D6A4F]" />
                       <span>{isExecutingTests ? "Executing..." : "Run Test Suite"}</span>
                     </button>
 
                     <button 
                       onClick={handleRequestAiCodeReview}
                       disabled={isReviewingCode}
-                      className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all">
-                      <Sparkles className="w-3.5 h-3.5 text-waypoint" />
+                      className="bg-[#2D6A4F] hover:bg-[#245640] text-white border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none text-xs font-pixel font-bold px-4 py-2.5 rounded-lg flex items-center space-x-1.5 transition-all">
+                      <Sparkles className="w-3.5 h-3.5 text-white" />
                       <span>{isReviewingCode ? "Analyzing with Gemini..." : "Request AI Code Review"}</span>
                     </button>
                   </div>
@@ -3055,39 +3588,39 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
                 {/* Test Results Output */}
                 {testExecutionResult && (
-                  <div className="border border-hairline rounded-xl p-4 bg-paper space-y-3 shadow-sm">
-                    <div className="flex items-center justify-between border-b border-hairline pb-2">
+                  <div className="border-2 border-[#1E1B18] rounded-xl p-4 bg-[#FAF6EE] space-y-3 shadow-overworld">
+                    <div className="flex items-center justify-between border-b-2 border-[#1E1B18]/15 pb-2">
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs font-mono font-semibold text-ink">In-Browser Test Results:</span>
-                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
+                        <span className="text-xs font-pixel font-bold text-[#1E1B18]">In-Browser Test Results:</span>
+                        <span className={`text-xs font-pixel font-bold px-2 py-0.5 rounded border-2 border-[#1E1B18] ${
                           testExecutionResult.passedCount === testExecutionResult.totalCount 
-                            ? "bg-path/10 text-path" 
-                            : "bg-caution/10 text-caution"
+                            ? "bg-[#2D6A4F] text-white" 
+                            : "bg-[#BA3B46] text-white"
                         }`}>
                           {testExecutionResult.passedCount} of {testExecutionResult.totalCount} Passed
                         </span>
                       </div>
-                      <span className="text-[11px] font-mono text-ink-40">Client Execution</span>
+                      <span className="text-[11px] font-mono text-[#685F53]">Client Execution</span>
                     </div>
 
                     <div className="space-y-2">
                       {testExecutionResult.details.map((d, idx) => (
-                        <div key={idx} className="text-xs font-mono bg-hairline/20 p-2.5 rounded-lg space-y-1">
+                        <div key={idx} className="text-xs font-mono bg-[#F2EAD6] border-2 border-[#1E1B18] p-2.5 rounded-lg space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-ink font-semibold">Test Case {idx + 1}</span>
+                            <span className="text-[#1E1B18] font-bold">Test Case {idx + 1}</span>
                             <div className="flex items-center space-x-2">
-                              {d.durationMs && <span className="text-[11px] text-ink-40">{d.durationMs}</span>}
-                              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
-                                d.passed ? "bg-path/15 text-path" : "bg-caution/15 text-caution"
+                              {d.durationMs && <span className="text-[11px] text-[#685F53]">{d.durationMs}</span>}
+                              <span className={`text-[11px] font-pixel font-bold px-1.5 py-0.5 rounded border border-[#1E1B18] ${
+                                d.passed ? "bg-[#2D6A4F] text-white" : "bg-[#BA3B46] text-white"
                               }`}>
                                 {d.passed ? "PASSED" : "FAILED"}
                               </span>
                             </div>
                           </div>
-                          <div className="text-ink-40 text-[11px] truncate">Input: {d.input}</div>
+                          <div className="text-[#685F53] text-[11px] truncate">Input: {d.input}</div>
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-ink-40">Expected: <strong className="text-ink">{d.expected}</strong></span>
-                            <span className={d.passed ? "text-path font-medium" : "text-caution font-medium"}>
+                            <span className="text-[#685F53]">Expected: <strong className="text-[#1E1B18]">{d.expected}</strong></span>
+                            <span className={d.passed ? "text-[#2D6A4F] font-bold" : "text-[#BA3B46] font-bold"}>
                               Actual: {d.actual}
                             </span>
                           </div>
@@ -3099,38 +3632,38 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
                 {/* Gemini AI Code Review Feedback */}
                 {codeReviewFeedback && (
-                  <div className="border border-waypoint/40 rounded-xl p-5 bg-waypoint/5 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-xs font-mono uppercase tracking-wider font-semibold text-ink flex items-center space-x-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-waypoint" />
+                  <div className="border-2 border-[#1E1B18] rounded-xl p-5 bg-[#FAF6EE] shadow-overworld space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-[#1E1B18]/15 pb-2">
+                      <span className="text-xs font-pixel uppercase tracking-wider font-bold text-[#1E1B18] flex items-center space-x-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#D9822B]" />
                         <span>Gemini AI Senior Code Review</span>
                       </span>
-                      <span className="text-xs font-mono font-bold bg-paper px-2 py-0.5 rounded border border-hairline text-ink">
+                      <span className="text-xs font-mono font-bold bg-[#F2EAD6] px-2 py-0.5 rounded border-2 border-[#1E1B18] text-[#1E1B18]">
                         Time: {codeReviewFeedback.timeComplexity} | Space: {codeReviewFeedback.spaceComplexity}
                       </span>
                     </div>
-                    <p className="text-xs text-ink leading-relaxed">
+                    <p className="text-xs text-[#1E1B18] leading-relaxed">
                       <strong>Strengths:</strong> {codeReviewFeedback.strengths}
                     </p>
-                    <p className="text-xs text-caution leading-relaxed">
+                    <p className="text-xs text-[#BA3B46] leading-relaxed font-semibold">
                       <strong>Optimization Notes:</strong> {codeReviewFeedback.suggestions}
                     </p>
                     {codeReviewFeedback.refactoredSnippet && (
                       <div className="space-y-1 pt-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-mono text-ink-40">Idiomatic Reference Snippet:</span>
+                          <span className="text-[11px] font-pixel text-[#685F53] font-bold">Idiomatic Reference Snippet:</span>
                           <button 
                             onClick={() => {
                               navigator.clipboard.writeText(codeReviewFeedback.refactoredSnippet);
                               setCopiedSnippet(true);
                               setTimeout(() => setCopiedSnippet(false), 2000);
                             }}
-                            className="text-[11px] font-mono text-ink-40 hover:text-ink flex items-center space-x-1">
-                            {copiedSnippet ? <Check className="w-3 h-3 text-path" /> : <Copy className="w-3 h-3" />}
+                            className="text-[11px] font-pixel font-bold text-[#685F53] hover:text-[#1E1B18] flex items-center space-x-1">
+                            {copiedSnippet ? <Check className="w-3 h-3 text-[#2D6A4F]" /> : <Copy className="w-3 h-3" />}
                             <span>{copiedSnippet ? "Copied!" : "Copy Snippet"}</span>
                           </button>
                         </div>
-                        <pre className="bg-paper border border-hairline p-3 rounded-lg text-xs font-mono text-ink overflow-x-auto">
+                        <pre className="bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] p-3 rounded-lg text-xs font-mono text-[#1E1B18] overflow-x-auto">
                           {codeReviewFeedback.refactoredSnippet}
                         </pre>
                       </div>
@@ -3147,17 +3680,17 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         =================================================================== */}
         {appView === "interview" && (
           <div className="max-w-3xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-hairline pb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b-2 border-[#1E1B18]/15 pb-4">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-path font-mono">Live Technical Drill</span>
-                <h1 className="font-display text-3xl font-semibold text-ink mt-1">AI Mock Recruiter Simulator</h1>
-                <p className="text-ink-40 text-xs md:text-sm">
+                <span className="text-xs font-pixel uppercase tracking-wider text-[#2D6A4F] font-bold">Live Technical Drill</span>
+                <h1 className="font-pixel text-3xl font-bold text-[#1E1B18] mt-1">AI Mock Recruiter Simulator</h1>
+                <p className="text-[#685F53] text-xs md:text-sm font-medium">
                   Screening for <strong>{selectedRole.title}</strong> with real-time feedback and recruiter scorecards.
                 </p>
               </div>
 
               <div className="flex items-center space-x-2">
-                <span className="text-xs font-mono text-ink-40 bg-ink/5 px-2.5 py-1 rounded border border-hairline">
+                <span className="text-xs font-pixel font-bold text-[#1E1B18] bg-[#FAF6EE] px-3 py-1.5 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18]">
                   Turn {Math.min(interviewTurns.length, 4)} of 4
                 </span>
                 <button 
@@ -3171,34 +3704,34 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     setInterviewComplete(false);
                     setCandidateScorecard(null);
                   }}
-                  className="text-xs font-mono text-ink-40 hover:text-ink flex items-center space-x-1 border border-hairline px-2.5 py-1 rounded">
-                  <RotateCcw className="w-3 h-3" />
+                  className="text-xs font-pixel font-bold text-[#1E1B18] hover:bg-[#EAE0CA] bg-[#FAF6EE] flex items-center space-x-1.5 border-2 border-[#1E1B18] px-3 py-1.5 rounded-lg shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all">
+                  <RotateCcw className="w-3.5 h-3.5" />
                   <span>Restart Session</span>
                 </button>
               </div>
             </div>
 
             {/* Conversation Messages */}
-            <div className="border border-hairline rounded-xl p-5 bg-paper min-h-[360px] max-h-[500px] overflow-y-auto space-y-4">
+            <div className="border-2 border-[#1E1B18] rounded-xl p-5 bg-[#FAF6EE] shadow-overworld min-h-[360px] max-h-[500px] overflow-y-auto space-y-4">
               {interviewTurns.map((turn, i) => (
                 <div key={i} className={`flex flex-col ${turn.speaker === "user" ? "items-end" : "items-start"}`}>
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-[11px] font-mono uppercase text-ink-40">
+                    <span className="text-[11px] font-pixel uppercase text-[#685F53] font-bold">
                       {turn.speaker === "user" ? "You (Candidate)" : "AI Senior Technical Recruiter"}
                     </span>
                     {turn.speaker === "ai" && (
                       <button 
                         onClick={() => handleToggleSpeech(turn.text)}
-                        className="text-ink-40 hover:text-ink transition-colors p-0.5"
+                        className="text-[#685F53] hover:text-[#1E1B18] transition-colors p-0.5"
                         title={isSpeaking ? "Stop voice" : "Listen to question"}>
-                        {isSpeaking ? <VolumeX className="w-3.5 h-3.5 text-caution" /> : <Volume2 className="w-3.5 h-3.5" />}
+                        {isSpeaking ? <VolumeX className="w-3.5 h-3.5 text-[#BA3B46]" /> : <Volume2 className="w-3.5 h-3.5" />}
                       </button>
                     )}
                   </div>
-                  <div className={`p-4 rounded-xl max-w-[85%] text-xs leading-relaxed ${
+                  <div className={`p-4 rounded-xl max-w-[85%] text-xs leading-relaxed border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] ${
                     turn.speaker === "user"
-                      ? "bg-ink text-paper font-medium"
-                      : "bg-hairline/30 border border-hairline text-ink"
+                      ? "bg-[#1E1B18] text-[#FAF6EE] font-medium"
+                      : "bg-[#F2EAD6] text-[#1E1B18] font-mono"
                   }`}>
                     {turn.text}
                   </div>
@@ -3206,8 +3739,8 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               ))}
 
               {isAiThinking && (
-                <div className="flex items-center space-x-2 text-xs font-mono text-ink-40 p-2">
-                  <div className="w-2 h-2 rounded-full bg-waypoint animate-bounce" />
+                <div className="flex items-center space-x-2 text-xs font-pixel text-[#D9822B] p-2 font-bold">
+                  <div className="w-2.5 h-2.5 rounded-xs bg-[#D9822B] animate-bounce" />
                   <span>AI interviewer is formulating adaptive technical assessment...</span>
                 </div>
               )}
@@ -3215,76 +3748,116 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
             {/* Recruiter Evaluation Scorecard */}
             {interviewComplete && candidateScorecard && (
-              <div className="border border-waypoint rounded-xl p-6 bg-paper space-y-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between border-b border-hairline pb-3 gap-2">
+              <div className="border-2 border-[#1E1B18] rounded-xl p-6 bg-[#FAF6EE] space-y-4 shadow-overworld-lg">
+                <div className="flex flex-wrap items-center justify-between border-b-2 border-[#1E1B18]/15 pb-3 gap-2">
                   <div className="flex items-center space-x-2">
-                    <Award className="w-5 h-5 text-waypoint" />
-                    <h3 className="font-display font-semibold text-lg text-ink">Recruiter Evaluation Scorecard</h3>
+                    <Award className="w-5 h-5 text-[#D9822B]" />
+                    <h3 className="font-pixel font-bold text-lg text-[#1E1B18]">Recruiter Evaluation Scorecard</h3>
                   </div>
                   <div className="flex items-center space-x-2">
                     {candidateScorecard.score && (
-                      <span className="text-xs font-mono font-bold bg-ink text-paper px-2.5 py-0.5 rounded">
+                      <span className="text-xs font-pixel font-bold bg-[#D9822B] text-white px-3 py-1 rounded border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18]">
                         Score: {candidateScorecard.score}/100
                       </span>
                     )}
-                    <span className="text-xs font-mono font-bold text-path bg-path/10 px-2.5 py-0.5 rounded">
+                    <span className="text-xs font-pixel font-bold text-white bg-[#2D6A4F] px-3 py-1 rounded border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18]">
                       {candidateScorecard.hiringVerdict || candidateScorecard.verdict}
                     </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
                   {candidateScorecard.technicalRating && (
-                    <div className="p-3 bg-hairline/20 rounded-lg space-y-1">
-                      <span className="font-mono text-ink-40 uppercase font-semibold">Technical Depth Rating:</span>
-                      <p className="text-ink font-semibold">{candidateScorecard.technicalRating}</p>
+                    <div className="p-3 bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] rounded-lg space-y-1">
+                      <span className="font-pixel text-[#685F53] uppercase font-bold text-[11px]">Technical Depth Rating:</span>
+                      <p className="text-[#1E1B18] font-bold">{candidateScorecard.technicalRating}</p>
                     </div>
                   )}
                   {candidateScorecard.communicationRating && (
-                    <div className="p-3 bg-hairline/20 rounded-lg space-y-1">
-                      <span className="font-mono text-ink-40 uppercase font-semibold">Communication Clarity:</span>
-                      <p className="text-ink font-semibold">{candidateScorecard.communicationRating}</p>
+                    <div className="p-3 bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] rounded-lg space-y-1">
+                      <span className="font-pixel text-[#685F53] uppercase font-bold text-[11px]">Communication Clarity:</span>
+                      <p className="text-[#1E1B18] font-bold">{candidateScorecard.communicationRating}</p>
                     </div>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <div className="space-y-1">
-                    <span className="font-mono text-ink-40 uppercase font-semibold">Strengths Observed:</span>
-                    <p className="text-ink leading-relaxed">{candidateScorecard.strengths}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                  <div className="p-3 bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] rounded-lg space-y-1">
+                    <span className="font-pixel text-[#2D6A4F] uppercase font-bold text-[11px]">Strengths Observed:</span>
+                    <p className="text-[#1E1B18] leading-relaxed font-medium">{candidateScorecard.strengths}</p>
                   </div>
-                  <div className="space-y-1">
-                    <span className="font-mono text-ink-40 uppercase font-semibold">Growth Areas:</span>
-                    <p className="text-caution leading-relaxed">{candidateScorecard.weaknesses}</p>
+                  <div className="p-3 bg-[#F2EAD6] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] rounded-lg space-y-1">
+                    <span className="font-pixel text-[#BA3B46] uppercase font-bold text-[11px]">Growth Areas:</span>
+                    <p className="text-[#BA3B46] leading-relaxed font-medium">{candidateScorecard.weaknesses}</p>
                   </div>
                 </div>
 
-                <div className="border-t border-hairline pt-3 text-xs space-y-1">
-                  <span className="font-mono text-ink-40 uppercase font-semibold">Exemplary Model Answer:</span>
-                  <p className="text-ink-40 italic leading-relaxed">{candidateScorecard.modelAnswer}</p>
+                <div className="border-t-2 border-[#1E1B18]/15 pt-3 text-xs space-y-1 font-mono">
+                  <span className="font-pixel text-[#1E1B18] uppercase font-bold text-[11px]">Exemplary Model Answer:</span>
+                  <p className="text-[#685F53] italic leading-relaxed bg-[#F2EAD6] p-3 rounded-lg border-2 border-[#1E1B18]">{candidateScorecard.modelAnswer}</p>
                 </div>
               </div>
             )}
 
             {/* Input Bar */}
             {!interviewComplete && (
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="text" 
-                  value={candidateInput}
-                  onChange={(e) => setCandidateInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendAnswer()}
-                  placeholder="Type your technical response here..."
-                  disabled={isAiThinking}
-                  className="flex-1 border border-hairline rounded-lg px-4 py-3 text-xs bg-paper focus:outline-none focus:border-ink"
-                />
-                <button 
-                  onClick={handleSendAnswer}
-                  disabled={isAiThinking || !candidateInput.trim()}
-                  className="bg-ink hover:bg-ink/90 text-paper px-5 py-3 rounded-lg text-xs font-medium flex items-center space-x-2 disabled:opacity-50 shadow-sm transition-all">
-                  <span>Send</span>
-                  <Send className="w-3.5 h-3.5" />
-                </button>
+              <div className="space-y-2">
+                {micErrorMessage && (
+                  <div className="text-xs text-[#BA3B46] bg-[#FAF6EE] border-2 border-[#BA3B46] shadow-[2px_2px_0px_#BA3B46] p-2.5 rounded-lg font-pixel font-bold">
+                    {micErrorMessage}
+                  </div>
+                )}
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={toggleListening}
+                    disabled={isAiThinking}
+                    title={isListening ? "Listening... Click to stop mic" : "Click to speak via microphone"}
+                    className={`p-3 rounded-lg border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center shrink-0 ${
+                      isListening
+                        ? "bg-[#BA3B46] text-white animate-pulse"
+                        : "bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18]"
+                    }`}
+                  >
+                    {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-[#2D6A4F]" />}
+                  </button>
+
+                  <input 
+                    type="text" 
+                    value={candidateInput}
+                    onChange={(e) => setCandidateInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSendAnswer()}
+                    placeholder={isListening ? "Listening to your answer... Speak naturally..." : "Type or speak your technical answer..."}
+                    disabled={isAiThinking}
+                    className="flex-1 border-2 border-[#1E1B18] rounded-lg px-4 py-3 text-xs bg-[#FAF6EE] text-[#1E1B18] placeholder:text-[#685F53] focus:outline-none focus:shadow-[2px_2px_0px_#1E1B18] font-mono"
+                  />
+
+                  <button 
+                    onClick={handleSendAnswer}
+                    disabled={isAiThinking || !candidateInput.trim()}
+                    className="bg-[#2D6A4F] hover:bg-[#245640] text-white px-5 py-3 rounded-lg text-xs font-pixel font-bold border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none flex items-center space-x-2 disabled:opacity-50 transition-all shrink-0">
+                    <span>Send</span>
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {isListening && (
+                  <div className="flex items-center space-x-2 text-xs font-pixel text-[#2D6A4F] bg-[#FAF6EE] border-2 border-[#1E1B18] p-2.5 rounded-lg shadow-[2px_2px_0px_#1E1B18]">
+                    <Radio className="w-3.5 h-3.5 animate-pulse text-[#2D6A4F]" />
+                    <span className="font-bold">Microphone active (Listening)... Speak your answer and click Send.</span>
+                    <div className="flex items-center space-x-0.5 ml-auto">
+                      {[1, 2, 3, 4, 5].map((bar) => (
+                        <div
+                          key={bar}
+                          className="w-1 bg-[#2D6A4F] rounded-xs transition-all"
+                          style={{
+                            height: `${Math.max(4, (audioMeterLevel / 100) * 16 * (bar / 3))}px`
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -3295,17 +3868,17 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         =================================================================== */}
         {appView === "cautions" && (
           <div className="max-w-3xl mx-auto space-y-6">
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-caution font-mono">Market Reality Check</span>
-              <h1 className="font-display text-3xl font-semibold text-ink mt-1">Job Posting Cautions Analyzer</h1>
-              <p className="text-ink-40 text-xs md:text-sm">
+            <div className="border-b-2 border-[#1E1B18]/15 pb-4">
+              <span className="text-xs font-pixel uppercase tracking-wider text-[#BA3B46] font-bold">Market Reality Check</span>
+              <h1 className="font-pixel text-3xl font-bold text-[#1E1B18] mt-1">Job Posting Cautions Analyzer</h1>
+              <p className="text-[#685F53] text-xs md:text-sm font-medium">
                 Paste any job specification to detect ghost listings, scam hardware deposits, and unrealistic fresher requirements.
               </p>
             </div>
 
             {/* Quick 1-Click Test Scenarios */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-mono text-ink-40">1-Click Test Presets:</span>
+              <span className="text-xs font-pixel font-bold text-[#685F53]">1-Click Presets:</span>
               {[
                 {
                   label: "Wire Deposit Scam",
@@ -3326,7 +3899,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     setJobInputText(preset.text);
                     handleScanJobPosting(preset.text);
                   }}
-                  className="text-xs px-2.5 py-1 rounded-md border border-hairline bg-paper hover:bg-hairline/40 text-ink font-mono transition-colors">
+                  className="text-xs px-2.5 py-1.5 rounded-md border-2 border-[#1E1B18] bg-[#FAF6EE] hover:bg-[#EAE0CA] text-[#1E1B18] font-pixel font-bold shadow-[2px_2px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all">
                   {preset.label}
                 </button>
               ))}
@@ -3337,32 +3910,32 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                 rows={5}
                 value={jobInputText}
                 onChange={(e) => setJobInputText(e.target.value)}
-                className="w-full border border-hairline rounded-lg p-4 text-xs font-mono bg-paper text-ink focus:outline-none focus:border-ink"
+                className="w-full border-2 border-[#1E1B18] rounded-lg p-4 text-xs font-mono bg-[#FAF6EE] text-[#1E1B18] placeholder:text-[#685F53] focus:outline-none focus:shadow-[2px_2px_0px_#1E1B18]"
                 placeholder="Paste job posting text here..."
               />
               <button 
                 onClick={() => handleScanJobPosting()}
                 disabled={isScanningJob}
-                className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-5 py-2.5 rounded-lg flex items-center space-x-2 disabled:opacity-60 transition-all shadow-sm">
-                <ShieldAlert className="w-4 h-4 text-paper" />
+                className="bg-[#BA3B46] hover:bg-[#9B2F39] text-white text-xs font-pixel font-bold px-5 py-2.5 rounded-lg border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none flex items-center space-x-2 disabled:opacity-60 transition-all">
+                <ShieldAlert className="w-4 h-4 text-white" />
                 <span>{isScanningJob ? "Scanning with Gemini AI..." : "Scan for Red Flags"}</span>
               </button>
             </div>
 
             {/* Risk Score Meter */}
             {jobRiskScore !== null && (
-              <div className="border border-hairline rounded-xl p-5 bg-paper space-y-4 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline pb-3">
+              <div className="border-2 border-[#1E1B18] rounded-xl p-5 bg-[#FAF6EE] space-y-4 shadow-overworld">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-[#1E1B18]/15 pb-3">
                   <div className="flex items-center space-x-2">
-                    <AlertTriangle className={`w-5 h-5 ${jobRiskScore > 60 ? "text-caution" : jobRiskScore > 25 ? "text-waypoint" : "text-path"}`} />
-                    <span className="font-display font-semibold text-base text-ink">Risk Vulnerability Assessment</span>
+                    <AlertTriangle className={`w-5 h-5 ${jobRiskScore > 60 ? "text-[#BA3B46]" : jobRiskScore > 25 ? "text-[#D9822B]" : "text-[#2D6A4F]"}`} />
+                    <span className="font-pixel font-bold text-base text-[#1E1B18]">Risk Vulnerability Assessment</span>
                   </div>
-                  <span className={`text-xs font-mono font-bold px-2.5 py-0.5 rounded ${
+                  <span className={`text-xs font-pixel font-bold px-3 py-1 rounded border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] ${
                     jobRiskScore > 60 
-                      ? "bg-caution/10 text-caution" 
+                      ? "bg-[#BA3B46] text-white" 
                       : jobRiskScore > 25 
-                      ? "bg-waypoint/15 text-ink" 
-                      : "bg-path/10 text-path"
+                      ? "bg-[#D9822B] text-white" 
+                      : "bg-[#2D6A4F] text-white"
                   }`}>
                     {jobRiskLevel || (jobRiskScore > 60 ? "Critical Threat" : "Low Risk")}
                   </span>
@@ -3370,22 +3943,20 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs font-mono">
-                    <span className="text-ink-40">Calculated Scam Probability:</span>
-                    <strong className="text-ink">{jobRiskScore}%</strong>
+                    <span className="text-[#685F53]">Calculated Scam Probability:</span>
+                    <strong className="text-[#1E1B18] font-bold">{jobRiskScore}%</strong>
                   </div>
-                  <div className="w-full bg-hairline h-2.5 rounded-full overflow-hidden">
+                  <div className="w-full bg-[#EAE0CA] border-2 border-[#1E1B18] h-3.5 rounded-sm overflow-hidden">
                     <div 
-                      className={`h-full rounded-full transition-all duration-700 ${
-                        jobRiskScore > 60 ? "bg-caution" : jobRiskScore > 25 ? "bg-waypoint" : "bg-path"
-                      }`}
-                      style={{ width: `${jobRiskScore}%` }}
+                      className={`h-full uiverse-progress-striped transition-all duration-500 ${jobRiskScore > 60 ? "uiverse-progress-hazard" : jobRiskScore > 25 ? "uiverse-progress-coin" : "uiverse-progress-quest"}`}
+                      style={{ width: `${Math.max(4, jobRiskScore)}%` }}
                     />
                   </div>
                 </div>
 
                 {jobAdvice && (
-                  <div className="p-3 bg-hairline/20 rounded-lg text-xs text-ink leading-relaxed border border-hairline/60">
-                    <strong className="text-ink block font-mono text-[11px] uppercase mb-0.5">Recommended Candidate Action:</strong>
+                  <div className="p-3 bg-[#F2EAD6] rounded-lg text-xs text-[#1E1B18] leading-relaxed border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18]">
+                    <strong className="text-[#1E1B18] block font-pixel uppercase text-[11px] mb-0.5">Recommended Candidate Action:</strong>
                     {jobAdvice}
                   </div>
                 )}
@@ -3393,24 +3964,22 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             )}
 
             {jobWarnings.length > 0 && (
-              <div className="border border-hairline rounded-xl p-5 bg-paper space-y-4">
-                <h3 className="font-display text-lg font-semibold text-ink flex items-center space-x-2">
-                  <AlertTriangle className="w-4 h-4 text-caution" />
+              <div className="border-2 border-[#1E1B18] rounded-xl p-5 bg-[#FAF6EE] space-y-4 shadow-overworld">
+                <h3 className="font-pixel text-lg font-bold text-[#1E1B18] flex items-center space-x-2">
+                  <AlertTriangle className="w-4 h-4 text-[#BA3B46]" />
                   <span>Detected Flags & Market Analysis</span>
                 </h3>
                 <div className="space-y-2.5">
                   {jobWarnings.map((warning, i) => (
                     <div 
                       key={i} 
-                      className={`border-l-2 pl-3 py-1 ${
-                        warning.severity === 'high' ? 'border-caution' : 'border-path'
-                      }`}>
-                      <span className={`text-xs font-bold uppercase tracking-wider block font-mono ${
-                        warning.severity === 'high' ? 'text-caution' : 'text-path'
+                      className="border-2 border-[#1E1B18] bg-[#F2EAD6] shadow-[2px_2px_0px_#1E1B18] p-3 rounded-lg">
+                      <span className={`text-xs font-bold uppercase tracking-wider block font-pixel ${
+                        warning.severity === 'high' ? 'text-[#BA3B46]' : 'text-[#2D6A4F]'
                       }`}>
                         {warning.type}
                       </span>
-                      <span className="text-xs text-ink leading-relaxed block mt-0.5">{warning.detail}</span>
+                      <span className="text-xs text-[#1E1B18] leading-relaxed block mt-0.5 font-medium">{warning.detail}</span>
                     </div>
                   ))}
                 </div>
@@ -3427,6 +3996,27 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             user={currentUser} 
             selectedTrackTitle={selectedRole.title} 
             enrolledCourseIds={completedCourseIds} 
+          />
+        )}
+
+        {/* ===================================================================
+            HUB 8: STUDENT PROFILE & PORTFOLIO HUB
+        =================================================================== */}
+        {appView === "profile" && (
+          <StudentProfile 
+            user={currentUser}
+            onUpdateUser={(updated) => {
+              setCurrentUser(updated);
+              try {
+                localStorage.setItem("careercompass_user", JSON.stringify(updated));
+              } catch (e) {
+                console.warn("Failed to persist user profile", e);
+              }
+            }}
+            onNavigateToTab={(tab) => {
+              setAppView(tab as AppView);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
 

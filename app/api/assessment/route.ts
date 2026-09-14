@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getStudentFriendlyQuestions } from "@/lib/discovery-engine";
+import { safeParseLLMJson, ACTIVE_GEMINI_MODELS } from "@/lib/gemini-safe-json";
 
 // Trade-specific fallback question banks for complete reliability
 const TRADE_FALLBACK_BANKS: Record<string, any> = {
@@ -317,21 +319,35 @@ export async function POST(req: Request) {
     intake = await req.json();
   } catch {}
 
-  const { degree, semester, codingExperience, dsaCount, trade, targetCompanyTier, placementTimeline } = intake;
+  const { 
+    degree, 
+    semester, 
+    codingExperience, 
+    dsaCount, 
+    trade, 
+    targetCompanyTier, 
+    placementTimeline,
+    level: explicitLevel
+  } = intake;
   const apiKey = process.env.GEMINI_API_KEY;
 
-  // Normalize trade key for fallback matching
-  const tradeStr = String(trade || "").toLowerCase();
-  let bankKey = "ai-ml";
-  if (tradeStr.includes("web") || tradeStr.includes("fullstack")) bankKey = "web-dev";
-  else if (tradeStr.includes("data") || tradeStr.includes("analytic")) bankKey = "data-science";
-  else if (tradeStr.includes("cloud") || tradeStr.includes("devops") || tradeStr.includes("system")) bankKey = "devops";
+  // Determine calibrated student level
+  const semStr = String(semester || "").toLowerCase();
+  const expStr = String(codingExperience || "").toLowerCase();
+  let calibratedLevel: "beginner" | "intermediate" | "advanced" = "beginner";
+
+  if (explicitLevel && ["beginner", "intermediate", "advanced"].includes(explicitLevel)) {
+    calibratedLevel = explicitLevel;
+  } else if (semStr.includes("final") || semStr.includes("graduated") || expStr.includes("advanced")) {
+    calibratedLevel = "advanced";
+  } else if (semStr.includes("3rd") || expStr.includes("intermediate")) {
+    calibratedLevel = "intermediate";
+  } else {
+    calibratedLevel = "beginner";
+  }
 
   if (apiKey) {
-    // Model preference: verified active gemini-3.6-flash
-    const candidateModels = ["gemini-3.6-flash"];
-
-    for (const modelName of candidateModels) {
+    for (const modelName of ACTIVE_GEMINI_MODELS) {
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
@@ -342,34 +358,40 @@ export async function POST(req: Request) {
           }
         });
 
-        const prompt = `You are an encouraging Senior Engineering Mentor calibrating an academic placement diagnostic for a college student.
+        const prompt = `You are a supportive, student-friendly Senior Engineering Professor preparing a diagnostic evaluation for a college student.
 Candidate Intake Profile:
 - Degree: ${degree || "B.Tech Computer Science"}
-- Academic Semester: ${semester || "3rd Year Prep"}
-- Hands-on Experience: ${codingExperience || "Beginner (Basic Syntax)"}
-- DSA Problem Solve Count: ${dsaCount || "0-25 problems"}
-- Chosen Specialization Trade: ${trade || "Python & Applied AI"}
-- Target Company Tier: ${targetCompanyTier || "Product Startups"}
-- Placement Urgency: ${placementTimeline || "6 Months"}
+- Academic Semester: ${semester || "1st / 2nd Year (Foundations)"}
+- Hands-on Coding Experience: ${codingExperience || "Beginner (< 6 months, basic syntax)"}
+- DSA Practice: ${dsaCount || "0 – 25 Problems"}
+- Specialization Track: ${trade || "Full-Stack Engineer"}
+- Target Difficulty Level: ${calibratedLevel.toUpperCase()}
+
+STRICT DIFFICULTY RULES:
+${calibratedLevel === "beginner" ? `
+- This student is a BEGINNER (1st or 2nd year engineering student).
+- Questions MUST test fundamental, accessible concepts: variables, data types, if/else conditions, loops, functions, array/list indexing, and simple foundational concepts for ${trade}.
+- NEVER ask advanced production distributed systems, LLM memory architectures, PagedAttention, multi-stage Docker builds, or B-tree disk pages. Keep it accessible and encouraging!
+` : calibratedLevel === "intermediate" ? `
+- This student is an INTERMEDIATE (3rd year engineering student).
+- Questions should test applied fundamentals: OOP concepts, basic data structures (stacks, queues, binary search), basic SQL (SELECT, WHERE, JOIN), RESTful conventions, and clean modular code.
+` : `
+- This student is an ADVANCED (Final year / placement candidate).
+- Questions can test system design basics, caching, asynchronous concurrency, and performance optimization.
+`}
 
 TASK:
-1. Generate exactly 6 fair, student-friendly, educational multiple-choice questions tailored to their chosen trade: "${trade}".
-Focus areas:
-- Q1 & Q2: Foundational concepts & syntax for ${trade} (no trick questions, clear educational options).
-- Q3 & Q4: Core data structures, operations, or protocols central to ${trade}.
-- Q5: Practical problem-solving or architectural design concept.
-- Q6: Real-world trade intuition (e.g. debugging, performance, or best practice).
-
-2. Provide a realistic Trade Alignment Analysis evaluating strengths and immediate gaps.
+1. Generate exactly 6 multiple-choice questions calibrated strictly for the ${calibratedLevel.toUpperCase()} level in ${trade}.
+2. Provide an honest, encouraging Student Trade Alignment Analysis evaluating their foundations and immediate next steps.
 
 Return ONLY a JSON object strictly matching this schema:
 {
   "tradeAnalysis": {
-    "tradeFitIndex": 85,
+    "tradeFitIndex": 82,
     "recommendedTrack": "string trade title",
-    "primaryStrength": "string summarizing candidate profile strength",
-    "criticalGap": "string summarizing immediate actionable skill to practice",
-    "placementAdvice": "string 1-2 sentence placement strategy"
+    "primaryStrength": "string summarizing student baseline",
+    "criticalGap": "string summarizing immediate friendly next step",
+    "placementAdvice": "string 1-2 sentence supportive guidance"
   },
   "questions": [
     {
@@ -387,8 +409,9 @@ Return ONLY a JSON object strictly matching this schema:
           setTimeout(() => reject(new Error("Timeout after 12s")), 12000)
         );
         const result = await Promise.race([model.generateContent(prompt), timeoutPromise]) as any;
-        const parsed = JSON.parse(result.response.text());
-        if (parsed.questions && parsed.questions.length >= 4) {
+        const rawText = result.response.text();
+        const parsed = safeParseLLMJson<any>(rawText, null);
+        if (parsed && Array.isArray(parsed.questions) && parsed.questions.length >= 4) {
           return NextResponse.json(parsed);
         }
       } catch (error: any) {
@@ -397,7 +420,16 @@ Return ONLY a JSON object strictly matching this schema:
     }
   }
 
-  // Resilient High-Quality Fallback Bank for the selected trade
-  const fallback = TRADE_FALLBACK_BANKS[bankKey] || TRADE_FALLBACK_BANKS["ai-ml"];
-  return NextResponse.json(fallback);
+  // Resilient High-Quality Fallback Bank calibrated to student's exact level
+  const fallbackQuestions = getStudentFriendlyQuestions(trade || "fullstack", calibratedLevel);
+  return NextResponse.json({
+    tradeAnalysis: {
+      tradeFitIndex: calibratedLevel === "beginner" ? 78 : calibratedLevel === "intermediate" ? 82 : 86,
+      recommendedTrack: trade || "Software Engineer",
+      primaryStrength: `Good initial curiosity and readiness to master ${trade || "software engineering"} foundations.`,
+      criticalGap: `Daily hands-on practice with syntax fundamentals and simple problem-solving drills.`,
+      placementAdvice: `Follow the step-by-step 12-week roadmap to build your confidence and project portfolio.`
+    },
+    questions: fallbackQuestions
+  });
 }

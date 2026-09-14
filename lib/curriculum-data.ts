@@ -107,7 +107,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Master vector spaces, matrix multiplication, determinants, and multi-variable gradient vectors in NumPy.',
       estimatedHours: 20,
       skillTags: ['linear-algebra', 'calculus', 'numpy', 'vectorization'],
-      status: 'completed',
+      status: 'current',
       channels: {
         theory: 'Linear transformations, dot products, eigenvalues & partial derivatives',
         project: 'Vectorized linear regression engine built from scratch in pure NumPy',
@@ -139,7 +139,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Learn supervised learning algorithms, bias-variance tradeoffs, and cross-validation with Scikit-Learn.',
       estimatedHours: 30,
       skillTags: ['scikit-learn', 'xgboost', 'bias-variance', 'cross-validation'],
-      status: 'completed',
+      status: 'locked',
       channels: {
         theory: 'Supervised vs unsupervised loss, L1/L2 regularization, ROC-AUC metrics',
         project: 'End-to-end customer churn prediction pipeline with hyperparameter tuning',
@@ -171,7 +171,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Build neural networks from scratch using PyTorch tensors, autograd, and GPU acceleration.',
       estimatedHours: 35,
       skillTags: ['pytorch', 'backprop', 'optimizers', 'tensors'],
-      status: 'current',
+      status: 'locked',
       channels: {
         theory: 'Computational graphs, reverse-mode autodiff, Adam optimizer internals',
         project: 'Custom multi-layer neural network with PyTorch training loops & TensorBoard',
@@ -305,7 +305,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Master semantic HTML5, CSS Flexbox/Grid, and modern ES6+ asynchronous JavaScript.',
       estimatedHours: 25,
       skillTags: ['javascript', 'es6', 'dom-api', 'html5-css3'],
-      status: 'completed',
+      status: 'current',
       channels: {
         theory: 'Event loop, asynchronous promises, closures, prototype chain & DOM tree',
         project: 'Interactive browser productivity app with vanilla ES6 and modular components',
@@ -337,7 +337,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Build reactive user interfaces using component architecture, custom hooks, and Tailwind CSS.',
       estimatedHours: 30,
       skillTags: ['react', 'hooks', 'tailwind', 'component-design'],
-      status: 'completed',
+      status: 'locked',
       channels: {
         theory: 'Virtual DOM, reconciliation, hook rules, render optimization & context',
         project: 'Multi-screen responsive web dashboard with clean Tailwind design system',
@@ -369,7 +369,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Design high-performance asynchronous RESTful APIs using Python FastAPI and Pydantic.',
       estimatedHours: 30,
       skillTags: ['fastapi', 'pydantic', 'rest-api', 'asyncio', 'jwt'],
-      status: 'current',
+      status: 'locked',
       channels: {
         theory: 'HTTP protocols, REST verbs, Pydantic type validation, CORS & JWT security',
         project: 'Production REST API with user registration, JWT auth, and rate-limited endpoints',
@@ -503,7 +503,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Master data cleaning, reshaping, indexing, and aggregation using NumPy and Pandas.',
       estimatedHours: 25,
       skillTags: ['pandas', 'numpy', 'data-cleaning', 'eda'],
-      status: 'completed',
+      status: 'current',
       channels: {
         theory: 'Memory layouts, vectorized operations, split-apply-combine paradigm, handling NaNs',
         project: 'Exploratory data analysis suite on 250,000+ real-world retail transactions',
@@ -535,7 +535,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Master statistical testing, probability distributions, confidence intervals, and A/B testing design.',
       estimatedHours: 30,
       skillTags: ['statistics', 'hypothesis-testing', 'probability', 'ab-testing'],
-      status: 'completed',
+      status: 'locked',
       channels: {
         theory: 'Central Limit Theorem, p-values, Type I/II errors, Bayesian vs Frequentist testing',
         project: 'Statistically rigorous A/B test analysis notebook with sample size calculations',
@@ -567,7 +567,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Write high-performance analytics SQL queries using window functions, CTEs, and partitioning.',
       estimatedHours: 30,
       skillTags: ['advanced-sql', 'window-functions', 'cte', 'data-warehousing'],
-      status: 'current',
+      status: 'locked',
       channels: {
         theory: 'Partitioning, window frames, execution plans, star schemas, dimensional modeling',
         project: 'Analytics warehouse schema with automated daily KPI rollups and cohort analysis',
@@ -701,7 +701,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Master Linux operating system internals, Bash shell automation, and process management.',
       estimatedHours: 25,
       skillTags: ['linux', 'bash', 'posix', 'process-management'],
-      status: 'completed',
+      status: 'current',
       channels: {
         theory: 'File descriptors, system calls, virtual memory, signals, permissions & piped I/O',
         project: 'Automated server telemetry script monitoring memory, disk, and zombie processes',
@@ -733,7 +733,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Understand TCP/IP, DNS resolution, TLS certificates, and asynchronous socket programming.',
       estimatedHours: 25,
       skillTags: ['networking', 'tcp-ip', 'http-protocols', 'tls-ssl'],
-      status: 'completed',
+      status: 'locked',
       channels: {
         theory: 'TCP 3-way handshake, flow control, DNS lookup chain, TLS 1.3 handshake, WebSockets',
         project: 'High-concurrency TCP socket server with non-blocking event-driven I/O in Python',
@@ -765,7 +765,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Design asynchronous microservices, Redis caching patterns, and background task queues.',
       estimatedHours: 30,
       skillTags: ['microservices', 'redis', 'caching', 'celery', 'asyncio'],
-      status: 'current',
+      status: 'locked',
       channels: {
         theory: 'Cache-aside pattern, cache invalidation, Redis data types, pub/sub, worker queues',
         project: 'Distributed background job processing pipeline with Redis, Celery, and FastAPI',
@@ -899,7 +899,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Build fast web interfaces with Next.js 15 App Router, Tailwind CSS, and streaming SSR.',
       estimatedHours: 25,
       skillTags: ['nextjs', 'react', 'tailwind', 'streaming-ui'],
-      status: 'completed',
+      status: 'current',
       channels: {
         theory: 'Server vs Client components, streaming SSR, Suspense boundaries, edge runtimes',
         project: 'Real-time AI conversational workspace with Markdown rendering and token streaming',
@@ -931,7 +931,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Integrate LLM APIs with Vercel AI SDK, structured JSON outputs, and function calling.',
       estimatedHours: 30,
       skillTags: ['ai-sdk', 'openai-api', 'function-calling', 'zod'],
-      status: 'completed',
+      status: 'locked',
       channels: {
         theory: 'Tokenomics, temperature, prompt formatting, tool call lifecycle, Zod schema validation',
         project: 'AI automated document analyzer extracting structured tabular data into JSON schemas',
@@ -963,7 +963,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Build production RAG pipelines using vector embeddings, Supabase pgvector, and hybrid search.',
       estimatedHours: 35,
       skillTags: ['embeddings', 'pgvector', 'supabase', 'rag'],
-      status: 'current',
+      status: 'locked',
       channels: {
         theory: 'Dense vector embeddings, cosine distance, HNSW indexing, chunking heuristics',
         project: 'Production knowledge base Q&A platform with pgvector, citation badges, and reranking',
@@ -1097,7 +1097,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Master prompt engineering, tokenization mechanics, and sampling parameters.',
       estimatedHours: 20,
       skillTags: ['prompt-engineering', 'tokenization', 'llm-parameters', 'few-shot'],
-      status: 'completed',
+      status: 'current',
       channels: {
         theory: 'Subword tokenization (BPE), temperature, top-p, context window limits, prompt injection',
         project: 'Production prompt testing suite with automated benchmark evaluation',
@@ -1129,7 +1129,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Build semantic search engines using dense vector embeddings and index algorithms.',
       estimatedHours: 25,
       skillTags: ['embeddings', 'vector-dbs', 'pinecone', 'chroma'],
-      status: 'completed',
+      status: 'locked',
       channels: {
         theory: 'Embedding geometries, cosine similarity, Euclidean distance, HNSW and IVF indexing',
         project: 'Semantic code search engine indexing 10,000+ open-source GitHub functions',
@@ -1161,7 +1161,7 @@ export const ROLE_MILESTONES: Record<string, Milestone[]> = {
       conciseSummary: 'Build enterprise RAG pipelines with semantic chunking, cross-encoder reranking, and query rewriting.',
       estimatedHours: 35,
       skillTags: ['advanced-rag', 'reranking', 'query-rewriting', 'hybrid-search'],
-      status: 'current',
+      status: 'locked',
       channels: {
         theory: 'Chunking tradeoffs, cross-encoder reranking models, hypothetical document embeddings (HyDE)',
         project: 'Production financial report RAG engine with tabular data extraction and reranking',

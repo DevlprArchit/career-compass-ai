@@ -18,7 +18,9 @@ import {
   ChevronUp,
   Award,
   Eye,
-  FileText
+  FileText,
+  GraduationCap,
+  FolderDown
 } from "lucide-react";
 import { UserProfile, cleanBadge } from "@/lib/discovery-engine";
 import { CERTIFIED_COURSES } from "@/lib/certified-courses";
@@ -52,13 +54,32 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
       } catch {}
     }
 
-    const defaultSkills = selectedTrackTitle.toLowerCase().includes("web")
+    const trackLower = (selectedTrackTitle || "").toLowerCase();
+    const defaultSkills = trackLower.includes("web")
       ? ["JavaScript (ES6+)", "TypeScript", "React", "Next.js", "Python", "FastAPI", "PostgreSQL", "HTML5/CSS3", "REST APIs", "Git"]
-      : selectedTrackTitle.toLowerCase().includes("data")
+      : trackLower.includes("data")
       ? ["Python", "Pandas", "NumPy", "SQL", "Scikit-Learn", "Matplotlib", "Seaborn", "Exploratory Data Analysis", "Git"]
-      : selectedTrackTitle.toLowerCase().includes("cloud")
+      : trackLower.includes("cloud")
       ? ["Linux / Bash", "Docker", "Kubernetes", "AWS Cloud", "PostgreSQL", "CI/CD Pipelines", "Python", "Git", "REST APIs"]
       : ["Python", "PyTorch", "NumPy", "Machine Learning", "FastAPI", "Deep Learning", "Transformers", "Git"];
+
+    let initialProjects: any[] = [];
+    if (typeof window !== "undefined") {
+      try {
+        const savedProjs = localStorage.getItem("careercompass_profile_projects");
+        if (savedProjs) {
+          const parsedProjs = JSON.parse(savedProjs);
+          if (Array.isArray(parsedProjs) && parsedProjs.length > 0) {
+            initialProjects = parsedProjs.map((p: any) => ({
+              name: p.title || "Project",
+              techStack: Array.isArray(p.techStack) ? p.techStack.join(", ") : (p.techStack || ""),
+              link: p.githubUrl || p.liveUrl || "",
+              bullets: [p.description || "Developed full-stack application following software engineering best practices."]
+            }));
+          }
+        }
+      } catch {}
+    }
 
     return {
       title: `${user?.name || "Candidate"} - Placement Resume`,
@@ -68,22 +89,22 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         name: user?.name || "",
         email: user?.email || "",
         phone: "",
-        location: "",
-        linkedin: "",
-        github: "",
-        portfolio: ""
+        location: user?.location || "",
+        linkedin: user?.linkedinUrl || "",
+        github: user?.githubUrl || "",
+        portfolio: user?.portfolioUrl || ""
       },
       summary: user?.name 
-        ? `Software engineer specialized in ${cleanBadge(selectedTrackTitle)} with hands-on experience building full-stack applications, algorithms, and scalable systems.`
+        ? `Software engineer specialized in ${cleanBadge(selectedTrackTitle)} with hands-on experience building scalable applications, system architectures, and reliable software.`
         : "",
       skills: defaultSkills,
       experience: [],
-      projects: [],
+      projects: initialProjects,
       education: [
         {
-          degree: user?.degree || "",
-          institution: "",
-          duration: "",
+          degree: user?.degree || "B.Tech Computer Science & Engineering",
+          institution: user?.college || "",
+          duration: user?.graduationYear ? `Class of ${user.graduationYear}` : "",
           score: user?.cgpaBand ? user.cgpaBand.split(" ")[0] : ""
         }
       ],
@@ -119,6 +140,104 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
       localStorage.setItem("careercompass_resume", JSON.stringify(resumeData));
     } catch {}
   }, [resumeData]);
+
+  // Sync profile details whenever user prop updates
+  useEffect(() => {
+    if (!user) return;
+    setResumeData(prev => {
+      let changed = false;
+      const newPersonalInfo = { ...prev.personalInfo };
+      if (!newPersonalInfo.name && user.name) {
+        newPersonalInfo.name = user.name;
+        changed = true;
+      }
+      if (!newPersonalInfo.email && user.email) {
+        newPersonalInfo.email = user.email;
+        changed = true;
+      }
+      if (!newPersonalInfo.location && user.location) {
+        newPersonalInfo.location = user.location;
+        changed = true;
+      }
+      if (!newPersonalInfo.linkedin && user.linkedinUrl) {
+        newPersonalInfo.linkedin = user.linkedinUrl;
+        changed = true;
+      }
+      if (!newPersonalInfo.github && user.githubUrl) {
+        newPersonalInfo.github = user.githubUrl;
+        changed = true;
+      }
+      if (!newPersonalInfo.portfolio && user.portfolioUrl) {
+        newPersonalInfo.portfolio = user.portfolioUrl;
+        changed = true;
+      }
+
+      const newEducation = [...(prev.education || [])];
+      if (newEducation.length > 0) {
+        const edu = { ...newEducation[0] };
+        if (!edu.institution && user.college) {
+          edu.institution = user.college;
+          changed = true;
+        }
+        if (!edu.degree && user.degree) {
+          edu.degree = user.degree;
+          changed = true;
+        }
+        if (!edu.score && user.cgpaBand) {
+          edu.score = user.cgpaBand.split(" ")[0];
+          changed = true;
+        }
+        if (!edu.duration && user.graduationYear) {
+          edu.duration = `Class of ${user.graduationYear}`;
+          changed = true;
+        }
+        newEducation[0] = edu;
+      } else if (user.college || user.degree) {
+        newEducation.push({
+          degree: user.degree || "B.Tech Computer Science & Engineering",
+          institution: user.college || "",
+          duration: user.graduationYear ? `Class of ${user.graduationYear}` : "",
+          score: user.cgpaBand ? user.cgpaBand.split(" ")[0] : ""
+        });
+        changed = true;
+      }
+
+      if (!changed) return prev;
+      return {
+        ...prev,
+        personalInfo: newPersonalInfo,
+        education: newEducation
+      };
+    });
+  }, [user]);
+
+  // Import projects from Student Profile
+  const handleImportProjectsFromProfile = () => {
+    try {
+      const saved = localStorage.getItem("careercompass_profile_projects");
+      if (saved) {
+        const profileProjects = JSON.parse(saved);
+        if (Array.isArray(profileProjects) && profileProjects.length > 0) {
+          const converted = profileProjects.map((p: any) => ({
+            name: p.title || "Engineering Project",
+            techStack: Array.isArray(p.techStack) ? p.techStack.join(", ") : (p.techStack || ""),
+            link: p.githubUrl || p.liveUrl || "",
+            bullets: [p.description || "Developed full-stack application following software engineering best practices."]
+          }));
+          setResumeData(prev => {
+            const existingNames = new Set(prev.projects.map(pr => pr.name.toLowerCase()));
+            const toAdd = converted.filter((c: any) => !existingNames.has(c.name.toLowerCase()));
+            return {
+              ...prev,
+              projects: [...prev.projects, ...(toAdd.length > 0 ? toAdd : converted)]
+            };
+          });
+          return;
+        }
+      }
+      alert("No projects saved in your profile yet. Add projects in the Student Profile tab first!");
+    } catch {}
+  };
 
   // Handle Summary AI Enhancement
   const handleEnhanceSummary = async () => {
@@ -206,6 +325,9 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         const data = await res.json();
         if (data && typeof data.atsScore === "number") {
           setAtsReport(data);
+          try {
+            localStorage.setItem("careercompass_resume_ats", JSON.stringify(data));
+          } catch {}
           return;
         }
       }
@@ -225,7 +347,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
     if (expCount >= 1) fallbackScore += 6;
     fallbackScore = Math.min(96, fallbackScore);
 
-    setAtsReport({
+    const calculatedReport = {
       atsScore: fallbackScore,
       verdict: fallbackScore >= 85 ? "Strong ATS Readiness (Tier-1 Matched)" : "Good Foundation (Optimization Recommended)",
       matchedKeywords: (resumeData.skills || ["Python", "Git", "REST APIs"]).slice(0, 6),
@@ -236,7 +358,11 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         `Tailor project descriptions specifically for ${selectedTrackTitle} competencies.`,
         "Add links to live demo deployments or GitHub repositories."
       ]
-    });
+    };
+    setAtsReport(calculatedReport);
+    try {
+      localStorage.setItem("careercompass_resume_ats", JSON.stringify(calculatedReport));
+    } catch {}
   };
 
   // Import enrolled verified courses
@@ -267,32 +393,35 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
   return (
     <div className="space-y-6">
       {/* BUILDER SUB-HEADER / TOOLBAR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-paper border border-hairline p-4 rounded-xl shadow-sm">
+      <div className="rounded-2xl p-5 md:p-6 bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center space-x-2">
-            <h2 className="font-display text-xl font-bold text-ink">Resume Studio</h2>
-            <span className="bg-path/10 text-path text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold">
-              ATS Optimized
-            </span>
+          <div className="flex items-center space-x-2.5">
+            <h2 className="font-display text-xl md:text-2xl font-bold text-[#1E1B18]">Resume Studio</h2>
+            <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-lg bg-[#2D6A4F]/10 border-2 border-[#2D6A4F]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2D6A4F] animate-pulse" />
+              <span className="text-[10px] font-pixel font-bold uppercase tracking-wider text-[#2D6A4F]">
+                ATS Optimized
+              </span>
+            </div>
           </div>
-          <p className="text-xs text-ink-40 mt-0.5">
-            Build and export a single-page engineering resume formatted for <span className="text-ink font-semibold">{cleanBadge(selectedTrackTitle)}</span>.
+          <p className="text-xs text-[#1E1B18]/70 mt-1 max-w-lg leading-relaxed">
+            Build and export a single-page engineering resume formatted for <strong className="text-[#1E1B18]">{cleanBadge(selectedTrackTitle)}</strong>.
           </p>
         </div>
 
         {/* Action Controls */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
           {/* Template Selector */}
-          <div className="flex items-center space-x-1 border border-hairline bg-paper rounded-lg p-1 text-xs">
-            <Layout className="w-3.5 h-3.5 text-ink-40 ml-1 mr-0.5" />
+          <div className="flex items-center space-x-1 bg-[#F2EAD6] border-2 border-[#1E1B18] rounded-xl p-1 text-xs shadow-xs">
+            <Layout className="w-3.5 h-3.5 text-[#1E1B18]/60 ml-1 mr-0.5" />
             {(["modern", "minimal", "classic", "compact"] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setResumeData(prev => ({ ...prev, template: t }))}
-                className={`px-2 py-1 rounded text-[11px] capitalize transition-colors ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-pixel capitalize transition-all ${
                   resumeData.template === t 
-                    ? "bg-ink text-paper font-medium shadow-xs" 
-                    : "text-ink-40 hover:text-ink"
+                    ? "bg-[#1E1B18] text-[#FAF6EE] font-bold shadow-xs scale-[1.02] border-2 border-[#1E1B18]" 
+                    : "text-[#1E1B18] hover:bg-[#EAE0CA]"
                 }`}
               >
                 {t}
@@ -301,8 +430,8 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
           </div>
 
           {/* Color Theme Selector */}
-          <div className="flex items-center space-x-1 border border-hairline bg-paper rounded-lg p-1 text-xs">
-            <Palette className="w-3.5 h-3.5 text-ink-40 ml-1 mr-0.5" />
+          <div className="flex items-center space-x-1.5 bg-[#F2EAD6] border-2 border-[#1E1B18] rounded-xl p-1.5 text-xs shadow-xs">
+            <Palette className="w-3.5 h-3.5 text-[#1E1B18]/60 ml-0.5 mr-0.5" />
             {[
               { id: "teal", color: "#0F6E64" },
               { id: "navy", color: "#12203A" },
@@ -312,8 +441,8 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
               <button
                 key={c.id}
                 onClick={() => setResumeData(prev => ({ ...prev, colorTheme: c.id as any }))}
-                className={`w-4 h-4 rounded-full border transition-all ${
-                  resumeData.colorTheme === c.id ? "ring-2 ring-ink ring-offset-1 scale-110" : "opacity-70 hover:opacity-100"
+                className={`w-4 h-4 rounded-full border-2 border-[#1E1B18] transition-all ${
+                  resumeData.colorTheme === c.id ? "ring-2 ring-[#D9822B] scale-110 shadow-xs" : "opacity-70 hover:opacity-100"
                 }`}
                 style={{ backgroundColor: c.color }}
                 title={c.id}
@@ -325,16 +454,16 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
           <button
             onClick={handleRunATSScan}
             disabled={isScanningATS}
-            className="border border-waypoint/40 bg-waypoint/10 hover:bg-waypoint/20 text-ink text-xs font-semibold px-3.5 py-2 rounded-lg flex items-center space-x-1.5 transition-colors shadow-xs"
+            className="uiverse-btn-tactile border-2 border-[#1E1B18] bg-[#D9822B] hover:bg-[#c47322] text-[#1E1B18] text-xs font-pixel px-4 py-2 rounded-xl flex items-center space-x-2 transition-all shadow-overworld"
           >
-            <Sparkles className="w-3.5 h-3.5 text-waypoint" />
-            <span>{isScanningATS ? "Scanning ATS..." : "Run AI ATS Scan"}</span>
+            <Sparkles className="w-3.5 h-3.5 text-[#1E1B18]" />
+            <span>{isScanningATS ? "Scanning..." : "AI ATS Audit"}</span>
           </button>
 
           {/* Print / Download PDF Button */}
           <button
             onClick={handlePrintPDF}
-            className="bg-ink hover:bg-ink/90 text-paper text-xs font-medium px-4 py-2 rounded-lg flex items-center space-x-1.5 shadow-sm transition-all"
+            className="uiverse-btn-tactile bg-[#1E1B18] hover:bg-[#2D2A26] text-[#FAF6EE] text-xs font-pixel px-4 py-2 rounded-xl flex items-center space-x-2 border-2 border-[#1E1B18] shadow-overworld transition-all"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export PDF</span>
@@ -343,13 +472,13 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
       </div>
 
       {/* MOBILE SEGMENTED CONTROL: EDIT FORM vs LIVE PREVIEW (Visible on < lg) */}
-      <div className="lg:hidden flex items-center bg-hairline/40 p-1 rounded-xl border border-hairline">
+      <div className="lg:hidden flex items-center bg-[#FAF6EE] p-1.5 rounded-xl border-2 border-[#1E1B18] shadow-overworld">
         <button
           onClick={() => setMobileTab("edit")}
-          className={`flex-1 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+          className={`flex-1 py-2.5 rounded-lg text-xs font-pixel flex items-center justify-center space-x-2 transition-all ${
             mobileTab === "edit"
-              ? "bg-ink text-paper shadow-sm"
-              : "text-ink-40 hover:text-ink"
+              ? "bg-[#1E1B18] text-[#FAF6EE] shadow-xs border-2 border-[#1E1B18]"
+              : "text-[#1E1B18]/70 hover:text-[#1E1B18]"
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -357,14 +486,14 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         </button>
         <button
           onClick={() => setMobileTab("preview")}
-          className={`flex-1 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+          className={`flex-1 py-2.5 rounded-lg text-xs font-pixel flex items-center justify-center space-x-2 transition-all ${
             mobileTab === "preview"
-              ? "bg-ink text-paper shadow-sm"
-              : "text-ink-40 hover:text-ink"
+              ? "bg-[#1E1B18] text-[#FAF6EE] shadow-xs border-2 border-[#1E1B18]"
+              : "text-[#1E1B18]/70 hover:text-[#1E1B18]"
           }`}
         >
           <Eye className="w-4 h-4" />
-          <span>Live Resume Preview</span>
+          <span>Live Resume Canvas</span>
         </button>
       </div>
 
@@ -377,21 +506,21 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         <div className={`lg:col-span-5 space-y-4 ${mobileTab === "edit" ? "block" : "hidden lg:block"}`}>
           
           {/* SECTION 1: PERSONAL INFO */}
-          <div className="border border-hairline rounded-xl bg-paper overflow-hidden shadow-xs">
+          <div className="bg-[#FAF6EE] rounded-2xl border-2 border-[#1E1B18] shadow-overworld overflow-hidden">
             <button
               onClick={() => setActiveSection(activeSection === "personal" ? "" : "personal")}
-              className="w-full flex items-center justify-between p-3.5 text-xs font-semibold text-ink hover:bg-hairline/20 transition-colors"
+              className="w-full flex items-center justify-between p-4 text-xs font-bold font-pixel text-[#1E1B18] hover:bg-[#EAE0CA] transition-colors"
             >
-              <span className="flex items-center space-x-2">
-                <span className="w-5 h-5 rounded bg-ink/5 flex items-center justify-center text-[10px] font-mono">1</span>
-                <span>Personal & Contact Info</span>
+              <span className="flex items-center space-x-2.5">
+                <span className="w-6 h-6 rounded-lg bg-[#1E1B18] text-[#FAF6EE] font-pixel text-xs font-bold flex items-center justify-center border-2 border-[#1E1B18] shadow-xs">1</span>
+                <span>Personal & Contact Details</span>
               </span>
-              {activeSection === "personal" ? <ChevronUp className="w-4 h-4 text-ink-40" /> : <ChevronDown className="w-4 h-4 text-ink-40" />}
+              {activeSection === "personal" ? <ChevronUp className="w-4 h-4 text-[#1E1B18]" /> : <ChevronDown className="w-4 h-4 text-[#1E1B18]" />}
             </button>
             {activeSection === "personal" && (
-              <div className="p-4 border-t border-hairline space-y-3 text-xs bg-paper">
+              <div className="p-4 sm:p-5 border-t-2 border-[#1E1B18] space-y-4 text-xs bg-[#F2EAD6]/50">
                 <div>
-                  <label className="text-[11px] font-mono uppercase text-ink-40 block mb-1">Full Name</label>
+                  <label className="text-[11px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1.5">Full Name</label>
                   <input
                     type="text"
                     value={resumeData.personalInfo.name}
@@ -399,12 +528,13 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                       ...prev,
                       personalInfo: { ...prev.personalInfo, name: e.target.value }
                     }))}
-                    className="w-full border border-hairline rounded-lg px-3 py-1.5 bg-paper focus:outline-none focus:border-ink font-medium"
+                    className="uiverse-input-elevated w-full px-3.5 py-2.5 text-xs font-semibold text-[#1E1B18] bg-[#FAF6EE] border-2 border-[#1E1B18]"
+                    placeholder="Candidate Name"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-[11px] font-mono uppercase text-ink-40 block mb-1">Email</label>
+                    <label className="text-[11px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1.5">Email</label>
                     <input
                       type="email"
                       value={resumeData.personalInfo.email}
@@ -412,11 +542,12 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                         ...prev,
                         personalInfo: { ...prev.personalInfo, email: e.target.value }
                       }))}
-                      className="w-full border border-hairline rounded-lg px-3 py-1.5 bg-paper focus:outline-none focus:border-ink font-mono text-[11px]"
+                      className="uiverse-input-elevated w-full px-3.5 py-2 text-xs font-mono text-[#1E1B18] bg-[#FAF6EE] border-2 border-[#1E1B18]"
+                      placeholder="name@email.com"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-mono uppercase text-ink-40 block mb-1">Phone</label>
+                    <label className="text-[11px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1.5">Phone</label>
                     <input
                       type="text"
                       value={resumeData.personalInfo.phone}
@@ -424,13 +555,14 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                         ...prev,
                         personalInfo: { ...prev.personalInfo, phone: e.target.value }
                       }))}
-                      className="w-full border border-hairline rounded-lg px-3 py-1.5 bg-paper focus:outline-none focus:border-ink font-mono text-[11px]"
+                      className="uiverse-input-elevated w-full px-3.5 py-2 text-xs font-mono text-[#1E1B18] bg-[#FAF6EE] border-2 border-[#1E1B18]"
+                      placeholder="+91 9876543210"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-[11px] font-mono uppercase text-ink-40 block mb-1">Location</label>
+                    <label className="text-[11px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1.5">Location</label>
                     <input
                       type="text"
                       value={resumeData.personalInfo.location}
@@ -438,11 +570,12 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                         ...prev,
                         personalInfo: { ...prev.personalInfo, location: e.target.value }
                       }))}
-                      className="w-full border border-hairline rounded-lg px-3 py-1.5 bg-paper focus:outline-none focus:border-ink"
+                      className="uiverse-input-elevated w-full px-3.5 py-2 text-xs text-[#1E1B18] bg-[#FAF6EE] border-2 border-[#1E1B18]"
+                      placeholder="City, Country"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-mono uppercase text-ink-40 block mb-1">Portfolio / Web</label>
+                    <label className="text-[11px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1.5">Portfolio / Web</label>
                     <input
                       type="text"
                       value={resumeData.personalInfo.portfolio || ""}
@@ -450,13 +583,14 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                         ...prev,
                         personalInfo: { ...prev.personalInfo, portfolio: e.target.value }
                       }))}
-                      className="w-full border border-hairline rounded-lg px-3 py-1.5 bg-paper focus:outline-none focus:border-ink font-mono text-[11px]"
+                      className="uiverse-input-elevated w-full px-3.5 py-2 text-xs font-mono text-[#1E1B18] bg-[#FAF6EE] border-2 border-[#1E1B18]"
+                      placeholder="yourportfolio.dev"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-[11px] font-mono uppercase text-ink-40 block mb-1">LinkedIn</label>
+                    <label className="text-[11px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1.5">LinkedIn</label>
                     <input
                       type="text"
                       value={resumeData.personalInfo.linkedin}
@@ -464,11 +598,12 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                         ...prev,
                         personalInfo: { ...prev.personalInfo, linkedin: e.target.value }
                       }))}
-                      className="w-full border border-hairline rounded-lg px-3 py-1.5 bg-paper focus:outline-none focus:border-ink font-mono text-[11px]"
+                      className="uiverse-input-elevated w-full px-3.5 py-2 text-xs font-mono text-[#1E1B18] bg-[#FAF6EE] border-2 border-[#1E1B18]"
+                      placeholder="linkedin.com/in/username"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-mono uppercase text-ink-40 block mb-1">GitHub</label>
+                    <label className="text-[11px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1.5">GitHub</label>
                     <input
                       type="text"
                       value={resumeData.personalInfo.github}
@@ -476,7 +611,8 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                         ...prev,
                         personalInfo: { ...prev.personalInfo, github: e.target.value }
                       }))}
-                      className="w-full border border-hairline rounded-lg px-3 py-1.5 bg-paper focus:outline-none focus:border-ink font-mono text-[11px]"
+                      className="uiverse-input-elevated w-full px-3.5 py-2 text-xs font-mono text-[#1E1B18] bg-[#FAF6EE] border-2 border-[#1E1B18]"
+                      placeholder="github.com/username"
                     />
                   </div>
                 </div>
@@ -485,27 +621,27 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
           </div>
 
           {/* SECTION 2: PROFESSIONAL SUMMARY */}
-          <div className="border border-hairline rounded-xl bg-paper overflow-hidden shadow-xs">
+          <div className="bg-[#FAF6EE] rounded-2xl border-2 border-[#1E1B18] shadow-overworld overflow-hidden">
             <button
               onClick={() => setActiveSection(activeSection === "summary" ? "" : "summary")}
-              className="w-full flex items-center justify-between p-3.5 text-xs font-semibold text-ink hover:bg-hairline/20 transition-colors"
+              className="w-full flex items-center justify-between p-4 text-xs font-bold font-pixel text-[#1E1B18] hover:bg-[#EAE0CA] transition-colors"
             >
-              <span className="flex items-center space-x-2">
-                <span className="w-5 h-5 rounded bg-ink/5 flex items-center justify-center text-[10px] font-mono">2</span>
+              <span className="flex items-center space-x-2.5">
+                <span className="w-6 h-6 rounded-lg bg-[#1E1B18] text-[#FAF6EE] font-pixel text-xs font-bold flex items-center justify-center border-2 border-[#1E1B18] shadow-xs">2</span>
                 <span>Professional Summary</span>
               </span>
-              {activeSection === "summary" ? <ChevronUp className="w-4 h-4 text-ink-40" /> : <ChevronDown className="w-4 h-4 text-ink-40" />}
+              {activeSection === "summary" ? <ChevronUp className="w-4 h-4 text-[#1E1B18]" /> : <ChevronDown className="w-4 h-4 text-[#1E1B18]" />}
             </button>
             {activeSection === "summary" && (
-              <div className="p-4 border-t border-hairline space-y-2.5 text-xs bg-paper">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-ink-40">2-3 sentences highlighting your readiness:</span>
+              <div className="p-4 sm:p-5 border-t-2 border-[#1E1B18] space-y-3.5 text-xs bg-[#F2EAD6]/50">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-[11px] text-[#1E1B18]/70 font-medium">2-3 impactful sentences highlighting your readiness:</span>
                   <button
                     onClick={handleEnhanceSummary}
                     disabled={isEnhancingSummary}
-                    className="inline-flex items-center space-x-1 text-path hover:text-path/80 font-semibold text-[11px] transition-colors"
+                    className="uiverse-btn-tactile inline-flex items-center space-x-1.5 text-[#2D6A4F] bg-[#2D6A4F]/10 hover:bg-[#2D6A4F]/20 border-2 border-[#2D6A4F] font-pixel font-bold text-[11px] px-3 py-1.5 rounded-xl transition-all shadow-xs shrink-0"
                   >
-                    <Sparkles className="w-3 h-3 text-waypoint" />
+                    <Sparkles className="w-3.5 h-3.5 text-[#D9822B]" />
                     <span>{isEnhancingSummary ? "Polishing with Gemini..." : "AI Enhance Summary"}</span>
                   </button>
                 </div>
@@ -513,31 +649,31 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                   rows={4}
                   value={resumeData.summary}
                   onChange={e => setResumeData(prev => ({ ...prev, summary: e.target.value }))}
-                  className="w-full border border-hairline rounded-lg p-2.5 bg-paper focus:outline-none focus:border-ink text-xs leading-relaxed"
+                  className="uiverse-input-elevated w-full p-3 bg-[#FAF6EE] border-2 border-[#1E1B18] text-xs leading-relaxed text-[#1E1B18] resize-none"
                 />
               </div>
             )}
           </div>
 
           {/* SECTION 3: TECHNICAL SKILLS */}
-          <div className="border border-hairline rounded-xl bg-paper overflow-hidden shadow-xs">
+          <div className="bg-[#FAF6EE] rounded-2xl border-2 border-[#1E1B18] shadow-overworld overflow-hidden">
             <button
               onClick={() => setActiveSection(activeSection === "skills" ? "" : "skills")}
-              className="w-full flex items-center justify-between p-3.5 text-xs font-semibold text-ink hover:bg-hairline/20 transition-colors"
+              className="w-full flex items-center justify-between p-4 text-xs font-bold font-pixel text-[#1E1B18] hover:bg-[#EAE0CA] transition-colors"
             >
-              <span className="flex items-center space-x-2">
-                <span className="w-5 h-5 rounded bg-ink/5 flex items-center justify-center text-[10px] font-mono">3</span>
+              <span className="flex items-center space-x-2.5">
+                <span className="w-6 h-6 rounded-lg bg-[#1E1B18] text-[#FAF6EE] font-pixel text-xs font-bold flex items-center justify-center border-2 border-[#1E1B18] shadow-xs">3</span>
                 <span>Technical Skills ({resumeData.skills.length})</span>
               </span>
-              {activeSection === "skills" ? <ChevronUp className="w-4 h-4 text-ink-40" /> : <ChevronDown className="w-4 h-4 text-ink-40" />}
+              {activeSection === "skills" ? <ChevronUp className="w-4 h-4 text-[#1E1B18]" /> : <ChevronDown className="w-4 h-4 text-[#1E1B18]" />}
             </button>
             {activeSection === "skills" && (
-              <div className="p-4 border-t border-hairline space-y-3 text-xs bg-paper">
-                <div className="flex flex-wrap gap-1.5">
+              <div className="p-4 sm:p-5 border-t-2 border-[#1E1B18] space-y-4 text-xs bg-[#F2EAD6]/50">
+                <div className="flex flex-wrap gap-2">
                   {resumeData.skills.map((skill, idx) => (
                     <span 
                       key={idx} 
-                      className="inline-flex items-center space-x-1 bg-hairline/30 border border-hairline text-ink text-[11px] font-mono px-2 py-0.5 rounded"
+                      className="inline-flex items-center space-x-1.5 bg-[#FAF6EE] border-2 border-[#1E1B18] text-[#1E1B18] text-[11px] font-mono px-3 py-1 rounded-xl shadow-xs font-bold"
                     >
                       <span>{skill}</span>
                       <button
@@ -545,7 +681,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                           ...prev,
                           skills: prev.skills.filter((_, i) => i !== idx)
                         }))}
-                        className="text-ink-40 hover:text-crimson ml-0.5"
+                        className="text-[#1E1B18]/50 hover:text-[#BA3B46] ml-1 font-bold text-sm"
                       >
                         ×
                       </button>
@@ -556,7 +692,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                   <input
                     type="text"
                     id="new-skill-input"
-                    placeholder="Add skill (e.g. Docker, Redux, PyTorch)..."
+                    placeholder="Add skill (e.g. Docker, PyTorch, Redux)..."
                     onKeyDown={e => {
                       if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
                         const val = (e.target as HTMLInputElement).value.trim();
@@ -566,7 +702,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                         (e.target as HTMLInputElement).value = "";
                       }
                     }}
-                    className="flex-1 border border-hairline rounded-lg px-3 py-1.5 text-xs bg-paper focus:outline-none focus:border-ink font-mono"
+                    className="uiverse-input-elevated flex-1 px-3.5 py-2 text-xs bg-[#FAF6EE] border-2 border-[#1E1B18] font-mono"
                   />
                   <button
                     onClick={() => {
@@ -579,7 +715,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                         input.value = "";
                       }
                     }}
-                    className="bg-ink text-paper px-3 py-1.5 rounded-lg text-xs font-medium"
+                    className="uiverse-btn-tactile bg-[#1E1B18] hover:bg-[#2D2A26] text-[#FAF6EE] px-4 py-2 rounded-xl text-xs font-pixel font-bold border-2 border-[#1E1B18] shadow-overworld"
                   >
                     Add
                   </button>
@@ -589,41 +725,41 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
           </div>
 
           {/* SECTION 4: PROJECTS & CAPSTONES */}
-          <div className="border border-hairline rounded-xl bg-paper overflow-hidden shadow-xs">
+          <div className="bg-[#FAF6EE] rounded-2xl border-2 border-[#1E1B18] shadow-overworld overflow-hidden">
             <button
               onClick={() => setActiveSection(activeSection === "projects" ? "" : "projects")}
-              className="w-full flex items-center justify-between p-3.5 text-xs font-semibold text-ink hover:bg-hairline/20 transition-colors"
+              className="w-full flex items-center justify-between p-4 text-xs font-bold font-pixel text-[#1E1B18] hover:bg-[#EAE0CA] transition-colors"
             >
-              <span className="flex items-center space-x-2">
-                <span className="w-5 h-5 rounded bg-ink/5 flex items-center justify-center text-[10px] font-mono">4</span>
+              <span className="flex items-center space-x-2.5">
+                <span className="w-6 h-6 rounded-lg bg-[#1E1B18] text-[#FAF6EE] font-pixel text-xs font-bold flex items-center justify-center border-2 border-[#1E1B18] shadow-xs">4</span>
                 <span>Engineering Projects ({resumeData.projects.length})</span>
               </span>
-              {activeSection === "projects" ? <ChevronUp className="w-4 h-4 text-ink-40" /> : <ChevronDown className="w-4 h-4 text-ink-40" />}
+              {activeSection === "projects" ? <ChevronUp className="w-4 h-4 text-[#1E1B18]" /> : <ChevronDown className="w-4 h-4 text-[#1E1B18]" />}
             </button>
             {activeSection === "projects" && (
-              <div className="p-4 border-t border-hairline space-y-4 text-xs bg-paper">
+              <div className="p-4 sm:p-5 border-t-2 border-[#1E1B18] space-y-4 text-xs bg-[#F2EAD6]/50">
                 {resumeData.projects.length === 0 ? (
-                  <div className="text-center py-5 border border-dashed border-hairline rounded-lg text-xs text-ink-40 space-y-1">
-                    <p className="font-medium text-ink">No engineering projects added yet.</p>
+                  <div className="text-center py-6 border-2 border-dashed border-[#1E1B18]/40 rounded-xl bg-[#FAF6EE] p-4 space-y-1.5 text-[#1E1B18]/70">
+                    <p className="font-bold text-[#1E1B18] font-pixel">No engineering projects added yet.</p>
                     <p className="text-[11px]">Click below to add your capstone or portfolio projects. You can generate and polish impact bullets using Gemini AI.</p>
                   </div>
                 ) : (
                   resumeData.projects.map((proj, pIdx) => (
-                    <div key={pIdx} className="border border-hairline rounded-lg p-3 space-y-2 bg-paper">
+                    <div key={pIdx} className="border-2 border-[#1E1B18] rounded-xl p-4 space-y-3 bg-[#FAF6EE] shadow-overworld">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">Project #{pIdx + 1}</span>
+                        <span className="font-bold font-pixel text-[#1E1B18] text-xs uppercase">PROJECT #{pIdx + 1}</span>
                         <button
                           onClick={() => setResumeData(prev => ({
                             ...prev,
                             projects: prev.projects.filter((_, i) => i !== pIdx)
                           }))}
-                          className="text-crimson hover:underline text-[11px] flex items-center space-x-0.5"
+                          className="text-[#BA3B46] hover:text-[#8C1D24] text-[11px] font-pixel font-bold flex items-center space-x-1"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                           <span>Delete</span>
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <input
                           type="text"
                           placeholder="Project Title"
@@ -633,7 +769,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                             updated[pIdx].name = e.target.value;
                             setResumeData(prev => ({ ...prev, projects: updated }));
                           }}
-                          className="border border-hairline rounded px-2.5 py-1 text-xs bg-paper font-medium"
+                          className="uiverse-input-elevated px-3 py-2 text-xs bg-[#F2EAD6] font-semibold border-2 border-[#1E1B18]"
                         />
                         <input
                           type="text"
@@ -644,14 +780,14 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                             updated[pIdx].techStack = e.target.value;
                             setResumeData(prev => ({ ...prev, projects: updated }));
                           }}
-                          className="border border-hairline rounded px-2.5 py-1 text-xs bg-paper font-mono text-[11px]"
+                          className="uiverse-input-elevated px-3 py-2 text-xs bg-[#F2EAD6] font-mono text-[11px] border-2 border-[#1E1B18]"
                         />
                       </div>
                       {/* Bullets */}
-                      <div className="space-y-1.5 pt-1">
-                        <label className="text-[10px] font-mono uppercase text-ink-40 block">Impact Bullets:</label>
+                      <div className="space-y-2 pt-1">
+                        <label className="text-[10px] font-pixel uppercase text-[#1E1B18]/70 font-bold block">Impact Bullets:</label>
                         {proj.bullets.map((b, bIdx) => (
-                          <div key={bIdx} className="flex items-start space-x-1.5">
+                          <div key={bIdx} className="flex items-start space-x-2">
                             <textarea
                               rows={2}
                               value={b}
@@ -660,15 +796,15 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                                 updated[pIdx].bullets[bIdx] = e.target.value;
                                 setResumeData(prev => ({ ...prev, projects: updated }));
                               }}
-                              className="flex-1 border border-hairline rounded p-1.5 text-xs bg-paper leading-snug"
+                              className="uiverse-input-elevated flex-1 p-2.5 text-xs bg-[#F2EAD6] leading-relaxed resize-none border-2 border-[#1E1B18]"
                             />
                             <button
                               onClick={() => handleEnhanceBullet("proj", pIdx, bIdx)}
                               disabled={enhancingBulletKey === `proj-${pIdx}-${bIdx}`}
                               title="Enhance with Gemini AI"
-                              className="p-1 text-path hover:bg-path/10 rounded transition-colors"
+                              className="p-2 text-[#2D6A4F] hover:bg-[#2D6A4F]/10 rounded-xl border-2 border-[#2D6A4F] transition-all bg-[#FAF6EE] shadow-xs shrink-0"
                             >
-                              <Sparkles className="w-3.5 h-3.5" />
+                              <Sparkles className="w-4 h-4 text-[#D9822B]" />
                             </button>
                             <button
                               onClick={() => {
@@ -676,9 +812,9 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                                 updated[pIdx].bullets.splice(bIdx, 1);
                                 setResumeData(prev => ({ ...prev, projects: updated }));
                               }}
-                              className="p-1 text-ink-40 hover:text-crimson"
+                              className="p-2 text-[#BA3B46] hover:bg-[#BA3B46]/10 rounded-xl border-2 border-[#BA3B46] transition-all bg-[#FAF6EE] shadow-xs shrink-0"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         ))}
@@ -688,7 +824,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                             updated[pIdx].bullets.push("Implemented key features optimizing system performance and user experience.");
                             setResumeData(prev => ({ ...prev, projects: updated }));
                           }}
-                          className="text-[11px] text-path hover:underline font-medium inline-flex items-center space-x-1 mt-1"
+                          className="text-[11px] text-[#2D6A4F] font-pixel font-bold inline-flex items-center space-x-1 mt-1 hover:underline"
                         >
                           <Plus className="w-3 h-3" />
                           <span>Add Bullet Point</span>
@@ -698,64 +834,191 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                   ))
                 )}
 
+                <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleImportProjectsFromProfile}
+                    className="uiverse-btn-tactile w-full sm:flex-1 border-2 border-[#2A6F97] bg-[#2A6F97]/10 hover:bg-[#2A6F97]/20 text-[#2A6F97] font-pixel font-bold py-2 px-3 rounded-xl flex items-center justify-center space-x-1.5 transition-all text-xs shadow-overworld"
+                  >
+                    <FolderDown className="w-3.5 h-3.5 text-[#2A6F97]" />
+                    <span>Import from Profile</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResumeData(prev => ({
+                      ...prev,
+                      projects: [
+                        ...prev.projects,
+                        {
+                          name: "",
+                          techStack: "",
+                          link: "",
+                          bullets: ["Engineered core functionality and ensured architectural quality."]
+                        }
+                      ]
+                    }))}
+                    className="uiverse-btn-tactile w-full sm:flex-1 border-2 border-[#1E1B18] bg-[#FAF6EE] hover:bg-[#EAE0CA] py-2 px-3 rounded-xl text-xs font-bold font-pixel text-[#1E1B18] flex items-center justify-center space-x-1.5 transition-all shadow-overworld"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Project</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 5: EDUCATION & ACADEMIC STANDING */}
+          <div className="bg-[#FAF6EE] rounded-2xl border-2 border-[#1E1B18] shadow-overworld overflow-hidden">
+            <button
+              onClick={() => setActiveSection(activeSection === "education" ? "" : "education")}
+              className="w-full flex items-center justify-between p-4 text-xs font-bold font-pixel text-[#1E1B18] hover:bg-[#EAE0CA] transition-colors"
+            >
+              <span className="flex items-center space-x-2.5">
+                <span className="w-6 h-6 rounded-lg bg-[#1E1B18] text-[#FAF6EE] font-pixel text-xs font-bold flex items-center justify-center border-2 border-[#1E1B18] shadow-xs">5</span>
+                <span>Education & Academics ({resumeData.education?.length || 0})</span>
+              </span>
+              {activeSection === "education" ? <ChevronUp className="w-4 h-4 text-[#1E1B18]" /> : <ChevronDown className="w-4 h-4 text-[#1E1B18]" />}
+            </button>
+            {activeSection === "education" && (
+              <div className="p-4 sm:p-5 border-t-2 border-[#1E1B18] space-y-4 text-xs bg-[#F2EAD6]/50">
+                {(resumeData.education || []).map((edu, edIdx) => (
+                  <div key={edIdx} className="border-2 border-[#1E1B18] rounded-xl p-4 space-y-3 bg-[#FAF6EE] shadow-overworld">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold font-pixel text-[#1E1B18] text-xs uppercase">EDUCATION #{edIdx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => setResumeData(prev => ({
+                          ...prev,
+                          education: prev.education.filter((_, i) => i !== edIdx)
+                        }))}
+                        className="text-[#BA3B46] hover:text-[#8C1D24] text-[11px] font-pixel font-bold flex items-center space-x-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                    <div className="space-y-2.5">
+                      <div>
+                        <label className="text-[10px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1">Degree & Branch</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. B.Tech Computer Science & Engineering"
+                          value={edu.degree}
+                          onChange={e => {
+                            const updated = [...(resumeData.education || [])];
+                            updated[edIdx].degree = e.target.value;
+                            setResumeData(prev => ({ ...prev, education: updated }));
+                          }}
+                          className="uiverse-input-elevated w-full px-3 py-2 text-xs bg-[#F2EAD6] font-semibold border-2 border-[#1E1B18]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1">College / Institute</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. National Institute of Technology"
+                          value={edu.institution}
+                          onChange={e => {
+                            const updated = [...(resumeData.education || [])];
+                            updated[edIdx].institution = e.target.value;
+                            setResumeData(prev => ({ ...prev, education: updated }));
+                          }}
+                          className="uiverse-input-elevated w-full px-3 py-2 text-xs bg-[#F2EAD6] border-2 border-[#1E1B18]"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="text-[10px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1">Duration / Batch</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Class of 2025"
+                            value={edu.duration}
+                            onChange={e => {
+                              const updated = [...(resumeData.education || [])];
+                              updated[edIdx].duration = e.target.value;
+                              setResumeData(prev => ({ ...prev, education: updated }));
+                            }}
+                            className="uiverse-input-elevated w-full px-3 py-2 text-xs bg-[#F2EAD6] font-mono text-[11px] border-2 border-[#1E1B18]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1">CGPA / Percentage</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 8.6 / 10.0"
+                            value={edu.score || ""}
+                            onChange={e => {
+                              const updated = [...(resumeData.education || [])];
+                              updated[edIdx].score = e.target.value;
+                              setResumeData(prev => ({ ...prev, education: updated }));
+                            }}
+                            className="uiverse-input-elevated w-full px-3 py-2 text-xs bg-[#F2EAD6] font-mono text-[11px] border-2 border-[#1E1B18]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
                 <button
+                  type="button"
                   onClick={() => setResumeData(prev => ({
                     ...prev,
-                    projects: [
-                      ...prev.projects,
+                    education: [
+                      ...(prev.education || []),
                       {
-                        name: "Full-Stack Application",
-                        techStack: "TypeScript, Next.js, PostgreSQL",
-                        link: "",
-                        bullets: ["Designed modular backend architecture and interactive frontend UI."]
+                        degree: "Higher Secondary (12th Standard)",
+                        institution: "",
+                        duration: "",
+                        score: ""
                       }
                     ]
                   }))}
-                  className="w-full border border-dashed border-hairline hover:border-ink py-2 rounded-lg text-xs font-medium text-ink-40 hover:text-ink flex items-center justify-center space-x-1 transition-colors"
+                  className="uiverse-btn-tactile w-full border-2 border-[#1E1B18] bg-[#FAF6EE] hover:bg-[#EAE0CA] py-2.5 rounded-xl text-xs font-bold font-pixel text-[#1E1B18] flex items-center justify-center space-x-1.5 transition-all shadow-overworld"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Add Project</span>
+                  <span>Add Education Item</span>
                 </button>
               </div>
             )}
           </div>
 
-          {/* SECTION 5: WORK & INTERNSHIP EXPERIENCE */}
-          <div className="border border-hairline rounded-xl bg-paper overflow-hidden shadow-xs">
+          {/* SECTION 6: WORK & INTERNSHIP EXPERIENCE */}
+          <div className="bg-[#FAF6EE] rounded-2xl border-2 border-[#1E1B18] shadow-overworld overflow-hidden">
             <button
               onClick={() => setActiveSection(activeSection === "experience" ? "" : "experience")}
-              className="w-full flex items-center justify-between p-3.5 text-xs font-semibold text-ink hover:bg-hairline/20 transition-colors"
+              className="w-full flex items-center justify-between p-4 text-xs font-bold font-pixel text-[#1E1B18] hover:bg-[#EAE0CA] transition-colors"
             >
-              <span className="flex items-center space-x-2">
-                <span className="w-5 h-5 rounded bg-ink/5 flex items-center justify-center text-[10px] font-mono">5</span>
+              <span className="flex items-center space-x-2.5">
+                <span className="w-6 h-6 rounded-lg bg-[#1E1B18] text-[#FAF6EE] font-pixel text-xs font-bold flex items-center justify-center border-2 border-[#1E1B18] shadow-xs">6</span>
                 <span>Work & Internships ({resumeData.experience.length})</span>
               </span>
-              {activeSection === "experience" ? <ChevronUp className="w-4 h-4 text-ink-40" /> : <ChevronDown className="w-4 h-4 text-ink-40" />}
+              {activeSection === "experience" ? <ChevronUp className="w-4 h-4 text-[#1E1B18]" /> : <ChevronDown className="w-4 h-4 text-[#1E1B18]" />}
             </button>
             {activeSection === "experience" && (
-              <div className="p-4 border-t border-hairline space-y-4 text-xs bg-paper">
+              <div className="p-4 sm:p-5 border-t-2 border-[#1E1B18] space-y-4 text-xs bg-[#F2EAD6]/50">
                 {resumeData.experience.length === 0 ? (
-                  <div className="text-center py-5 border border-dashed border-hairline rounded-lg text-xs text-ink-40 space-y-1">
-                    <p className="font-medium text-ink">No prior work or internship experience.</p>
+                  <div className="text-center py-6 border-2 border-dashed border-[#1E1B18]/40 rounded-xl bg-[#FAF6EE] p-4 space-y-1.5 text-[#1E1B18]/70">
+                    <p className="font-bold text-[#1E1B18] font-pixel">No prior work or internship experience.</p>
                     <p className="text-[11px]">Freshers can leave this blank or click below to add internships, freelance, or research experience.</p>
                   </div>
                 ) : (
                   resumeData.experience.map((exp, eIdx) => (
-                    <div key={eIdx} className="border border-hairline rounded-lg p-3 space-y-2 bg-paper">
+                    <div key={eIdx} className="border-2 border-[#1E1B18] rounded-xl p-4 space-y-3 bg-[#FAF6EE] shadow-overworld">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-ink">Experience #{eIdx + 1}</span>
+                        <span className="font-bold font-pixel text-[#1E1B18] text-xs uppercase">EXPERIENCE #{eIdx + 1}</span>
                         <button
                           onClick={() => setResumeData(prev => ({
                             ...prev,
                             experience: prev.experience.filter((_, i) => i !== eIdx)
                           }))}
-                          className="text-crimson hover:underline text-[11px] flex items-center space-x-0.5"
+                          className="text-[#BA3B46] hover:text-[#8C1D24] text-[11px] font-pixel font-bold flex items-center space-x-1"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                           <span>Delete</span>
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <input
                           type="text"
                           placeholder="Role (e.g. Software Engineer Intern)"
@@ -765,7 +1028,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                             updated[eIdx].role = e.target.value;
                             setResumeData(prev => ({ ...prev, experience: updated }));
                           }}
-                          className="border border-hairline rounded px-2.5 py-1 text-xs bg-paper font-medium"
+                          className="uiverse-input-elevated px-3 py-2 text-xs bg-[#F2EAD6] font-semibold border-2 border-[#1E1B18]"
                         />
                         <input
                           type="text"
@@ -776,7 +1039,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                             updated[eIdx].company = e.target.value;
                             setResumeData(prev => ({ ...prev, experience: updated }));
                           }}
-                          className="border border-hairline rounded px-2.5 py-1 text-xs bg-paper"
+                          className="uiverse-input-elevated px-3 py-2 text-xs bg-[#F2EAD6] border-2 border-[#1E1B18]"
                         />
                       </div>
                       <input
@@ -788,7 +1051,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                           updated[eIdx].duration = e.target.value;
                           setResumeData(prev => ({ ...prev, experience: updated }));
                         }}
-                        className="w-full border border-hairline rounded px-2.5 py-1 text-xs bg-paper font-mono text-[11px]"
+                        className="uiverse-input-elevated w-full px-3 py-2 text-xs bg-[#F2EAD6] font-mono text-[11px] border-2 border-[#1E1B18]"
                       />
                     </div>
                   ))
@@ -807,7 +1070,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                       }
                     ]
                   }))}
-                  className="w-full border border-dashed border-hairline hover:border-ink py-2 rounded-lg text-xs font-medium text-ink-40 hover:text-ink flex items-center justify-center space-x-1 transition-colors"
+                  className="uiverse-btn-tactile w-full border-2 border-[#1E1B18] bg-[#FAF6EE] hover:bg-[#EAE0CA] py-2.5 rounded-xl text-xs font-bold font-pixel text-[#1E1B18] flex items-center justify-center space-x-1.5 transition-all shadow-overworld"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Work Experience</span>
@@ -816,39 +1079,39 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
             )}
           </div>
 
-          {/* SECTION 6: VERIFIED CERTIFICATIONS */}
-          <div className="border border-hairline rounded-xl bg-paper overflow-hidden shadow-xs">
+          {/* SECTION 7: VERIFIED CERTIFICATIONS */}
+          <div className="bg-[#FAF6EE] rounded-2xl border-2 border-[#1E1B18] shadow-overworld overflow-hidden">
             <button
               onClick={() => setActiveSection(activeSection === "certs" ? "" : "certs")}
-              className="w-full flex items-center justify-between p-3.5 text-xs font-semibold text-ink hover:bg-hairline/20 transition-colors"
+              className="w-full flex items-center justify-between p-4 text-xs font-bold font-pixel text-[#1E1B18] hover:bg-[#EAE0CA] transition-colors"
             >
-              <span className="flex items-center space-x-2">
-                <span className="w-5 h-5 rounded bg-ink/5 flex items-center justify-center text-[10px] font-mono">6</span>
+              <span className="flex items-center space-x-2.5">
+                <span className="w-6 h-6 rounded-lg bg-[#1E1B18] text-[#FAF6EE] font-pixel text-xs font-bold flex items-center justify-center border-2 border-[#1E1B18] shadow-xs">7</span>
                 <span>Certifications ({resumeData.certifications.length})</span>
               </span>
-              {activeSection === "certs" ? <ChevronUp className="w-4 h-4 text-ink-40" /> : <ChevronDown className="w-4 h-4 text-ink-40" />}
+              {activeSection === "certs" ? <ChevronUp className="w-4 h-4 text-[#1E1B18]" /> : <ChevronDown className="w-4 h-4 text-[#1E1B18]" />}
             </button>
             {activeSection === "certs" && (
-              <div className="p-4 border-t border-hairline space-y-3 text-xs bg-paper">
+              <div className="p-4 sm:p-5 border-t-2 border-[#1E1B18] space-y-4 text-xs bg-[#F2EAD6]/50">
                 <button
                   onClick={handleImportCourses}
-                  className="w-full border border-path/30 bg-path/5 hover:bg-path/10 text-path font-medium py-1.5 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-colors text-xs"
+                  className="uiverse-btn-tactile w-full border-2 border-[#2D6A4F] bg-[#2D6A4F]/15 hover:bg-[#2D6A4F]/25 text-[#2D6A4F] font-pixel font-bold py-2.5 px-3 rounded-xl flex items-center justify-center space-x-2 transition-all text-xs shadow-overworld"
                 >
-                  <Award className="w-3.5 h-3.5 text-waypoint" />
+                  <Award className="w-4 h-4 text-[#D9822B]" />
                   <span>Auto-Import Track Certifications</span>
                 </button>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {resumeData.certifications.map((cert, cIdx) => (
-                    <div key={cIdx} className="flex items-center justify-between p-2 rounded border border-hairline bg-paper text-xs">
-                      <span className="font-medium text-ink">{cert}</span>
+                    <div key={cIdx} className="flex items-center justify-between p-3 rounded-xl border-2 border-[#1E1B18] bg-[#FAF6EE] text-xs shadow-xs font-medium">
+                      <span className="font-semibold text-[#1E1B18]">{cert}</span>
                       <button
                         onClick={() => setResumeData(prev => ({
                           ...prev,
                           certifications: prev.certifications.filter((_, i) => i !== cIdx)
                         }))}
-                        className="text-ink-40 hover:text-crimson"
+                        className="text-[#1E1B18]/50 hover:text-[#BA3B46] p-1 transition-colors"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   ))}
@@ -861,13 +1124,15 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         {/* =================================================================== */}
         {/* RIGHT COLUMN: LIVE RESUME PREVIEW (7 cols)                          */}
         {/* =================================================================== */}
-        <div className={`lg:col-span-7 sticky top-6 space-y-3 ${mobileTab === "preview" ? "block" : "hidden lg:block"}`}>
-          <div className="flex items-center justify-between text-xs text-ink-40 font-mono px-1">
-            <span>LIVE DOCUMENT CANVAS</span>
-            <span className="text-path">100% Vector Print Format</span>
+        <div className={`lg:col-span-7 sticky top-6 space-y-3.5 ${mobileTab === "preview" ? "block" : "hidden lg:block"}`}>
+          <div className="flex items-center justify-between text-xs font-pixel px-1">
+            <span className="text-[#1E1B18]/70 uppercase tracking-wider">LIVE RESUME CANVAS</span>
+            <span className="text-[#2D6A4F] font-pixel bg-[#2D6A4F]/10 px-2.5 py-0.5 rounded-lg border-2 border-[#2D6A4F]">
+              100% Vector Print Compliant
+            </span>
           </div>
 
-          <div className="overflow-x-auto p-4 bg-hairline/20 rounded-xl border border-hairline shadow-inner">
+          <div className="rounded-2xl p-6 bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld overflow-x-auto">
             <ResumePreview data={resumeData} />
           </div>
         </div>
@@ -877,58 +1142,65 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
       {/* ATS SCANNER MODAL / CARD                                              */}
       {/* ===================================================================== */}
       {showAtsModal && (
-        <div className="fixed inset-0 bg-ink/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50">
-          <div className="bg-paper border border-hairline rounded-2xl max-w-xl w-full p-4 sm:p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-hairline pb-3">
-              <div className="flex items-center space-x-2">
-                <Sparkles className="w-5 h-5 text-waypoint" />
-                <h3 className="font-display font-bold text-lg text-ink">AI ATS Compatibility Audit</h3>
+        <div className="fixed inset-0 bg-[#1E1B18]/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50">
+          <div className="bg-[#FAF6EE] border-2 border-[#1E1B18] rounded-2xl max-w-xl w-full p-6 sm:p-8 shadow-overworld-lg space-y-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b-2 border-[#1E1B18]/20 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-[#D9822B] border-2 border-[#1E1B18] flex items-center justify-center shadow-xs text-[#1E1B18]">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-pixel font-bold text-lg text-[#1E1B18]">AI ATS COMPATIBILITY AUDIT</h3>
+                  <p className="text-xs text-[#1E1B18]/70">Recruiter scoring & keyword density audit</p>
+                </div>
               </div>
               <button
                 onClick={() => setShowAtsModal(false)}
-                className="w-7 h-7 rounded-full bg-hairline/40 hover:bg-hairline flex items-center justify-center text-ink-40 hover:text-ink"
+                className="w-8 h-8 rounded-lg bg-[#FAF6EE] hover:bg-[#EAE0CA] border-2 border-[#1E1B18] flex items-center justify-center text-[#1E1B18] font-pixel text-xs transition-colors shadow-xs"
               >
-                ×
+                ✕
               </button>
             </div>
 
             {isScanningATS ? (
-              <div className="py-12 text-center space-y-3">
-                <div className="w-10 h-10 border-3 border-waypoint border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="font-display font-medium text-ink text-sm">Evaluating Against Industry Standard ATS Filters...</p>
-                <p className="text-xs text-ink-40">Checking keyword density, formatting compliance, and impact quantification for {selectedTrackTitle}.</p>
+              <div className="py-12 text-center space-y-4">
+                <div className="w-12 h-12 border-4 border-[#D9822B] border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="font-pixel font-bold text-[#1E1B18] text-base">EVALUATING AGAINST ATS FILTERS...</p>
+                <p className="text-xs text-[#1E1B18]/70 max-w-sm mx-auto leading-relaxed">
+                  Checking keyword density, formatting compliance, and impact quantification for {selectedTrackTitle}.
+                </p>
               </div>
             ) : atsReport ? (
-              <div className="space-y-4 text-xs">
+              <div className="space-y-5 text-xs">
                 {/* Score Banner */}
-                <div className="flex items-center justify-between p-4 rounded-xl bg-ink text-paper">
+                <div className="flex items-center justify-between p-5 rounded-xl bg-[#1E1B18] text-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld">
                   <div>
-                    <span className="text-[11px] font-mono text-paper/60 uppercase block">ATS Pass Index</span>
-                    <h4 className="font-display text-2xl font-bold">{atsReport.verdict}</h4>
+                    <span className="text-[11px] font-pixel text-[#FAF6EE]/70 uppercase tracking-wider block mb-1">ATS PASS INDEX</span>
+                    <h4 className="font-pixel text-xl font-bold">{atsReport.verdict}</h4>
                   </div>
                   <div className="text-right">
-                    <span className="font-sans font-bold text-3xl text-waypoint">{atsReport.atsScore}%</span>
-                    <span className="text-[10px] font-mono block text-paper/70">Campus Benchmark: 75%</span>
+                    <span className="font-display font-bold text-3xl text-[#D9822B]">{atsReport.atsScore}%</span>
+                    <span className="text-[10px] font-mono block text-[#FAF6EE]/70 mt-0.5">Benchmark: 75%</span>
                   </div>
                 </div>
 
                 {/* Keywords breakdown */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="border border-hairline p-3 rounded-lg bg-paper">
-                    <span className="font-semibold text-path text-[11px] block mb-1">✓ Matched Industry Keywords</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
+                  <div className="border-2 border-[#2D6A4F] p-3.5 rounded-xl bg-[#FAF6EE] shadow-xs space-y-1.5">
+                    <span className="font-pixel text-[#2D6A4F] text-[11px] block">✓ MATCHED KEYWORDS</span>
+                    <div className="flex flex-wrap gap-1">
                       {atsReport.matchedKeywords.map((k, idx) => (
-                        <span key={idx} className="bg-path/10 text-path text-[10px] font-mono px-1.5 py-0.5 rounded">
+                        <span key={idx} className="bg-[#F2EAD6] text-[#2D6A4F] border border-[#2D6A4F] text-[10px] font-mono px-2 py-0.5 rounded-md font-semibold">
                           {k}
                         </span>
                       ))}
                     </div>
                   </div>
-                  <div className="border border-hairline p-3 rounded-lg bg-paper">
-                    <span className="font-semibold text-crimson text-[11px] block mb-1">! Recommended High-Value Keywords</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
+                  <div className="border-2 border-[#BA3B46] p-3.5 rounded-xl bg-[#FAF6EE] shadow-xs space-y-1.5">
+                    <span className="font-pixel text-[#BA3B46] text-[11px] block">! MISSING KEYWORDS</span>
+                    <div className="flex flex-wrap gap-1">
                       {atsReport.missingKeywords.map((k, idx) => (
-                        <span key={idx} className="bg-crimson/10 text-crimson text-[10px] font-mono px-1.5 py-0.5 rounded">
+                        <span key={idx} className="bg-[#F2EAD6] text-[#BA3B46] border border-[#BA3B46] text-[10px] font-mono px-2 py-0.5 rounded-md font-semibold">
                           {k}
                         </span>
                       ))}
@@ -937,12 +1209,12 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                 </div>
 
                 {/* Actionable Tips */}
-                <div className="border border-hairline p-3 rounded-lg bg-paper space-y-1.5">
-                  <span className="font-semibold text-ink text-[11px] block">Actionable Optimization Steps:</span>
-                  <ul className="space-y-1">
+                <div className="border-2 border-[#1E1B18] p-4 rounded-xl bg-[#F2EAD6] space-y-2">
+                  <span className="font-pixel text-[#1E1B18] text-[11px] block uppercase tracking-wider">ACTIONABLE OPTIMIZATION STEPS:</span>
+                  <ul className="space-y-1.5">
                     {atsReport.actionableTips.map((tip, idx) => (
-                      <li key={idx} className="flex items-start space-x-1.5 text-gray-700">
-                        <span className="text-waypoint font-bold">•</span>
+                      <li key={idx} className="flex items-start space-x-2 text-[#1E1B18]/80 leading-relaxed">
+                        <span className="text-[#D9822B] font-bold">•</span>
                         <span>{tip}</span>
                       </li>
                     ))}
@@ -952,7 +1224,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                 <div className="flex justify-end pt-2">
                   <button
                     onClick={() => setShowAtsModal(false)}
-                    className="bg-ink text-paper px-5 py-2 rounded-lg font-medium text-xs shadow-xs"
+                    className="uiverse-btn-tactile bg-[#2D6A4F] hover:bg-[#255740] text-white px-6 py-3 rounded-xl font-pixel text-xs shadow-overworld border-2 border-[#1E1B18]"
                   >
                     Apply Optimization Tips
                   </button>

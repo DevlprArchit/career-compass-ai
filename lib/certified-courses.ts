@@ -390,22 +390,43 @@ export const CERTIFIED_COURSES: CertifiedCourse[] = [
   },
   {
     id: "aws-cloud-essentials",
-    title: "AWS Cloud Practitioner Essentials & Digital Badge",
+    title: "AWS Certified Cloud Practitioner Essentials (CLF-C02)",
     provider: "Amazon Web Services (AWS Skill Builder)",
     certificateType: "Free Digital Badge",
     duration: "6 Hours",
     durationHours: 6,
     difficulty: "Beginner",
     category: "Cloud & DevOps",
-    trackId: "backend-cloud",
-    description: "Official foundational AWS cloud course covering compute (EC2, Lambda), storage (S3, EBS), networking (VPC), security (IAM), and cloud economics with an official digital badge.",
+    trackId: "all",
+    description: "Official foundational AWS cloud computing course developed by AWS engineers. Prepares students for the official CLF-C02 certification with free digital badge accreditation.",
     whatYouLearn: [
-      "AWS global cloud infrastructure and core architecture",
-      "Compute services: EC2, Elastic Beanstalk, and AWS Lambda",
-      "Storage, databases, and managed PostgreSQL (RDS, DynamoDB)",
-      "AWS security model, IAM policies, and billing management"
+      "AWS global cloud infrastructure, regions, and availability zones",
+      "Compute & Serverless: EC2, Elastic Beanstalk, and AWS Lambda",
+      "Cloud storage, databases, and managed PostgreSQL (S3, DynamoDB, RDS)",
+      "AWS Well-Architected Framework, IAM security, and cost billing models"
     ],
     enrollmentUrl: "https://explore.skillbuilder.aws/learn/course/external/view/elearning/134/aws-cloud-practitioner-essentials",
+    cost: "100% Free",
+    iconType: "server"
+  },
+  {
+    id: "aws-cloud-quest",
+    title: "AWS Cloud Quest: Cloud Practitioner (Interactive 3D Role-Playing)",
+    provider: "AWS Skill Builder & Student Builder Hub",
+    certificateType: "Free Digital Badge",
+    duration: "12 Hours (Interactive Game)",
+    durationHours: 12,
+    difficulty: "Beginner",
+    category: "Cloud & DevOps",
+    trackId: "all",
+    description: "Official 3D role-playing learning game from AWS. Solve simulated city business challenges by architecting and configuring real live AWS services directly in the cloud console.",
+    whatYouLearn: [
+      "Deploying scalable cloud compute instances and auto-scaling groups",
+      "Configuring Amazon S3 buckets and static web hosting with CloudFront",
+      "Setting up secure virtual private clouds (VPC) with security groups",
+      "Earning the official verifiable AWS Cloud Quest digital badge on Credly"
+    ],
+    enrollmentUrl: "https://aws.amazon.com/training/digital/aws-cloud-quest/",
     cost: "100% Free",
     iconType: "server"
   },

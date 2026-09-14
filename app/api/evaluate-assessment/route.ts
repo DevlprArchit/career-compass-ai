@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { safeParseLLMJson, ACTIVE_GEMINI_MODELS } from "@/lib/gemini-safe-json";
 
 interface QuestionAnswerSummary {
   questionId: string;
@@ -35,30 +36,36 @@ export async function POST(req: Request) {
   const correctCount = answers.filter((a: QuestionAnswerSummary) => a.isCorrect).length;
   const diagnosticAccuracy = Math.round((correctCount / totalQuestions) * 100);
 
-  // 1. Calculate Algorithmic Baselines (Guarantees mathematical accuracy)
-  let dsaScore = 20;
+  // 1. Calculate Dynamic Algorithmic Baselines (Accurate, proportional mathematics)
+  let dsaScore = 25;
   const dsaStr = String(dsaCount || "").toLowerCase();
-  if (dsaStr.includes("75") || dsaStr.includes("150")) dsaScore = 95;
-  else if (dsaStr.includes("30") || dsaStr.includes("50")) dsaScore = 65;
-  else if (dsaStr.includes("10") || dsaStr.includes("20")) dsaScore = 40;
+  if (dsaStr.includes("150") || dsaStr.includes("100") || dsaStr.includes("75+")) dsaScore = 94;
+  else if (dsaStr.includes("75") || dsaStr.includes("50-75") || dsaStr.includes("50")) dsaScore = 80;
+  else if (dsaStr.includes("25") || dsaStr.includes("30") || dsaStr.includes("20-50")) dsaScore = 64;
+  else if (dsaStr.includes("10") || dsaStr.includes("1-20")) dsaScore = 42;
+  else dsaScore = 25;
 
-  let expScore = 25;
+  let expScore = 35;
   const expStr = String(codingExperience || "").toLowerCase();
-  if (expStr.includes("intermediate") || expStr.includes("1-2") || expStr.includes("moderate")) expScore = 70;
-  else if (expStr.includes("advanced") || expStr.includes("production") || expStr.includes("3+")) expScore = 95;
+  if (expStr.includes("advanced") || expStr.includes("production") || expStr.includes("3+")) expScore = 95;
+  else if (expStr.includes("intermediate") || expStr.includes("1-2") || expStr.includes("moderate")) expScore = 72;
+  else expScore = 38;
 
-  let cgpaScore = 60;
+  let cgpaScore = 65;
   const cgpaStr = String(cgpaBand || "");
-  if (cgpaStr.includes("8.5") || cgpaStr.includes("9") || cgpaStr.includes("High")) cgpaScore = 90;
-  else if (cgpaStr.includes("7.5") || cgpaStr.includes("8")) cgpaScore = 75;
+  if (cgpaStr.includes("9") || cgpaStr.includes("8.5")) cgpaScore = 94;
+  else if (cgpaStr.includes("8") || cgpaStr.includes("7.5")) cgpaScore = 82;
+  else if (cgpaStr.includes("7") || cgpaStr.includes("6.5")) cgpaScore = 68;
+  else cgpaScore = 55;
 
+  // Real, dynamic readiness calculation (scales from 28% to 96% based on actual performance)
   const calculatedReadinessScore = Math.min(
     96,
-    Math.max(25, Math.round(0.45 * diagnosticAccuracy + 0.35 * dsaScore + 0.20 * cgpaScore))
+    Math.max(28, Math.round(0.40 * diagnosticAccuracy + 0.30 * dsaScore + 0.15 * cgpaScore + 0.15 * expScore))
   );
   const calculatedTradeFit = Math.min(
-    95,
-    Math.max(25, Math.round(0.65 * diagnosticAccuracy + 0.35 * expScore))
+    96,
+    Math.max(30, Math.round(0.55 * diagnosticAccuracy + 0.30 * expScore + 0.15 * dsaScore))
   );
 
   // Group correct and incorrect categories
@@ -117,8 +124,7 @@ export async function POST(req: Request) {
   // 2. Call Gemini AI for Deep Personalized Synthesis
   const apiKey = process.env.GEMINI_API_KEY;
   if (apiKey) {
-    const candidateModels = ["gemini-3.6-flash"];
-    for (const modelName of candidateModels) {
+    for (const modelName of ACTIVE_GEMINI_MODELS) {
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
@@ -169,24 +175,27 @@ Return ONLY a valid JSON object matching this schema:
 }`;
 
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Timeout after 12s")), 12000)
+          setTimeout(() => reject(new Error("Timeout after 25s")), 25000)
         );
         const result = await Promise.race([model.generateContent(prompt), timeoutPromise]) as any;
-        const parsed = JSON.parse(result.response.text());
+        const rawText = result.response.text();
+        const parsed = safeParseLLMJson<any>(rawText, null);
 
-        return NextResponse.json({
-          readinessScore: parsed.readinessScore || calculatedReadinessScore,
-          tradeFitIndex: parsed.tradeFitIndex || calculatedTradeFit,
-          primaryStrength: parsed.primaryStrength || fallbackStrength,
-          criticalGap: parsed.criticalGap || fallbackGap,
-          placementAdvice: parsed.placementAdvice || fallbackAdvice,
-          calibratedSkills: parsed.calibratedSkills && parsed.calibratedSkills.length === 5 
-            ? parsed.calibratedSkills 
-            : defaultSkillMatrix,
-          diagnosticAccuracy,
-          correctCount,
-          totalQuestions
-        });
+        if (parsed) {
+          return NextResponse.json({
+            readinessScore: parsed.readinessScore || calculatedReadinessScore,
+            tradeFitIndex: parsed.tradeFitIndex || calculatedTradeFit,
+            primaryStrength: parsed.primaryStrength || fallbackStrength,
+            criticalGap: parsed.criticalGap || fallbackGap,
+            placementAdvice: parsed.placementAdvice || fallbackAdvice,
+            calibratedSkills: parsed.calibratedSkills && parsed.calibratedSkills.length === 5 
+              ? parsed.calibratedSkills 
+              : defaultSkillMatrix,
+            diagnosticAccuracy,
+            correctCount,
+            totalQuestions
+          });
+        }
       } catch (err: any) {
         console.warn(`Gemini evaluation error on ${modelName}:`, err.message);
       }

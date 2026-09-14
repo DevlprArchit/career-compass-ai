@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { safeParseLLMJson, ACTIVE_GEMINI_MODELS } from "@/lib/gemini-safe-json";
 
 const ROLE_DEFAULT_STARTERS: Record<string, string> = {
-  "ai-ml": "Hello! I am your AI Technical Recruiter screening for Applied AI & Machine Learning. Let's start with foundational concepts: In Python, can you explain the difference between a mutable and an immutable data structure, and why NumPy arrays are preferred over native lists for tensor math?",
-  "web-dev": "Hello! I am your Technical Interviewer screening for Full-Stack Web Development. Let's begin with web architecture: Can you explain the difference between HTTP GET and POST requests, and what idempotency means in RESTful API design?",
-  "data-science": "Hello! I am your Analytics Technical Lead. Welcome to your interview! To start: When analyzing a dataset that contains missing values and heavy positive skew, what techniques would you use to clean the data and which measure of central tendency would you report?",
-  "cloud-devops": "Hello! I am your Cloud & DevOps Technical Recruiter. Let's kick off our screening: Can you explain the fundamental architectural differences between a Docker container and a Virtual Machine (VM), and how containerization improves deployment consistency?"
+  "ai-ml": "Hi there! I am Alex, and I will be conducting your technical screening for Applied AI and Machine Learning today. To kick things off with core concepts: Can you explain the practical difference between overfitting and underfitting, and what strategies you use to prevent a model from simply memorizing training data?",
+  "web-dev": "Hello! I am Alex, and welcome to your technical screening for Full-Stack Web Development. To begin, could you walk me through the practical difference between client-side rendering and server-side rendering, and how you decide which one to use for a high-traffic web application?",
+  "data-science": "Welcome! I am Alex, and I will be walking through your technical interview for Data Science today. To start us off: When dealing with missing data and heavy outliers in a numerical dataset, what is your standard approach for cleaning and imputing that data before training?",
+  "cloud-devops": "Hello! I am Alex, and welcome to your DevOps and Cloud Infrastructure screening. Let's start with foundational architecture: Can you explain the difference between a container and a virtual machine, and how container orchestration like Kubernetes manages automated failovers?"
 };
 
 export async function POST(req: Request) {
@@ -32,54 +33,66 @@ export async function POST(req: Request) {
   }
 
   if (apiKey) {
-    const candidateModels = ["gemini-3.6-flash"];
-    for (const modelName of candidateModels) {
+    for (const modelName of ACTIVE_GEMINI_MODELS) {
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: { 
             responseMimeType: "application/json",
-            temperature: 0.25
+            temperature: 0.2
           }
         });
 
-        const prompt = `You are an empathetic, highly competent Senior Technical Hiring Manager conducting a live campus placement screening drill for college engineering students targeting "${targetRole || 'Junior Software Engineer'}".
+        const prompt = `You are Alex, a rigorous Principal Staff Software Engineer and Senior Technical Bar Raiser conducting an interactive mock technical screening interview for a candidate targeting the role: "${targetRole || "Software Engineer"}".
 
-Guidelines:
-- Tone: Encouraging, authentic, conversational, professional.
-- Focus: Ask fundamental, practical engineering questions relevant to "${targetRole}".
-- If the candidate answers well, acknowledge it specifically and ask a natural, trade-relevant follow-up question.
-- If the conversation history has 3 or more turns (or candidate wraps up), set "isFinished": true and generate an accurate candidate evaluation scorecard.
+CRITICAL ANSWER EVALUATION RULES (NEVER BLINDLY PRAISE):
+- Scrutinize what the candidate ACTUALLY stated in "Candidate's Latest Spoken Response".
+- NEVER say "Your answer is correct" or "Good attempt" if the answer is factually incorrect, incomplete, or gibberish.
+- Evaluate strictly on factual correctness, depth, and clarity:
+  * FACTUALLY WRONG / CONFUSED: Explicitly point out the misconception right away (e.g., "Docker is container virtualization runtime, not a programming language..."), state the accurate definition, and ask a question to test their understanding of the real mechanism.
+  * SUPERFICIAL / VAGUE / BUZZWORDS: State that the answer scratches the surface but misses real production tradeoffs or mechanics, and challenge them to explain how it works under the hood.
+  * EMPTY / "I DON'T KNOW" / PASS: Note that honesty is appreciated, give a 1-sentence technical overview of what an interviewer was looking for, and pivot to another core question.
+  * ACCURATE & THOROUGH: Acknowledge what specific technical nuance was right, and immediately challenge them with an edge-case, failure scenario, or scale constraint.
+- Voice/Spoken Format: Exactly 2 to 3 spoken sentences. Do NOT use markdown asterisks (*), hashtags, or bullet points in "aiResponse" as this is read out loud.
+- Session Conclusion: After 3 or 4 substantive turns or when concluded, set "isFinished": true, provide an honest spoken summary in "aiResponse", and calculate a realistic 0-100 score in "scorecard".
 
 Return ONLY a valid JSON object strictly matching this schema:
 {
   "isFinished": boolean,
-  "aiResponse": "Next question or concluding congratulatory feedback",
+  "aiResponse": "Conversational text spoken directly to the candidate. 2-3 sentences max. No markdown asterisks.",
   "scorecard": {
-    "score": 88,
+    "score": 75,
     "technicalRating": "Strong Candidate" | "Proficient" | "Needs Polish",
     "communicationRating": "Clear & Articulate" | "Adequate" | "Needs Structure",
     "hiringVerdict": "Recommended for Final Round" | "Conditional Hire (Mentorship)" | "Practice Recommended",
     "strengths": "1-2 sentences highlighting demonstrated technical competence for ${targetRole}",
-    "weaknesses": "1-2 sentences on concepts or edge cases to study before campus drives",
+    "weaknesses": "1-2 sentences highlighting specific misconceptions, missing depth, or areas to revise",
     "modelAnswer": "1-2 sentences demonstrating the ideal concise answer to the last question"
-  } // scorecard is null if isFinished is false
+  }
 }
 
 Interview Conversation History:
 ${JSON.stringify(history)}
 
-Candidate's Latest Response:
+Candidate's Latest Spoken Response:
 ${userReply || ""}`;
 
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Timeout after 12s")), 12000)
+          setTimeout(() => reject(new Error("Timeout after 20s")), 20000)
         );
         const result = await Promise.race([model.generateContent(prompt), timeoutPromise]) as any;
-        const parsed = JSON.parse(result.response.text());
-        if (parsed.aiResponse) {
-          return NextResponse.json(parsed);
+        const rawText = result.response.text();
+        const parsed = safeParseLLMJson<any>(rawText, null);
+        if (parsed && parsed.aiResponse) {
+          // Clean any markdown formatting from spoken response
+          const cleanSpoken = String(parsed.aiResponse).replace(/[*_#`]/g, "").trim();
+          return NextResponse.json({
+            isFinished: Boolean(parsed.isFinished),
+            aiResponse: cleanSpoken,
+            scorecard: parsed.scorecard || null,
+            feedback: parsed.scorecard || null
+          });
         }
       } catch (error: any) {
         console.warn(`Gemini interview model ${modelName} error:`, error.message);
@@ -87,30 +100,67 @@ ${userReply || ""}`;
     }
   }
 
-  // Resilient Fallback
+  // Intelligent Analytical Fallback based on Candidate Input
   const turnsCount = history.length || 0;
   const isFinished = turnsCount >= 3;
+  const lowerReply = String(userReply || "").toLowerCase().trim();
+  const isVagueOrUnknown = lowerReply.length < 15 || 
+    lowerReply.includes("don't know") || 
+    lowerReply.includes("dont know") || 
+    lowerReply.includes("not sure") || 
+    lowerReply.includes("no idea") || 
+    lowerReply.includes("pass") || 
+    lowerReply.includes("skip");
+
+  const isNonsenseOrTooShort = lowerReply.length < 5;
+
+  let adaptiveFeedback = "";
+  let calculatedScore = 75;
+  let technicalRating = "Proficient";
+  let hiringVerdict = "Conditional Hire (Mentorship)";
+
+  if (isNonsenseOrTooShort) {
+    adaptiveFeedback = "That response was too brief to evaluate technical proficiency. In a technical interview, clear and complete explanations are critical. Let's reset: ";
+    calculatedScore = 45;
+    technicalRating = "Needs Polish";
+    hiringVerdict = "Practice Recommended";
+  } else if (isVagueOrUnknown) {
+    adaptiveFeedback = "Acknowledged. When encountering an unfamiliar system concept, walk through first principles rather than passing. Let's pivot to a related fundamental: ";
+    calculatedScore = 58;
+    technicalRating = "Needs Polish";
+    hiringVerdict = "Practice Recommended";
+  } else {
+    adaptiveFeedback = `Regarding your point on ${lowerReply.slice(0, 35)}... Make sure to substantiate your answers with architectural tradeoffs and production failure handling. Moving forward: `;
+    calculatedScore = 80;
+    technicalRating = "Proficient";
+    hiringVerdict = "Recommended for Final Round";
+  }
 
   const fallbackQuestions: Record<string, string> = {
-    "ai-ml": "Excellent explanation! Let's build on that: In a production ML pipeline, how do you handle unexpected data drift or extreme outliers without breaking model inference?",
-    "web-dev": "Great answer! In a production web application, how do you handle asynchronous error boundaries and network request timeouts in the frontend gracefully?",
-    "data-science": "Spot on! Can you explain how you would detect multicollinearity between predictive features, and how regularization (L1 Lasso vs L2 Ridge) helps address it?",
-    "cloud-devops": "Well stated! In a microservices architecture, how do you ensure zero-downtime rolling updates when deploying a new Docker image to production?"
+    "ai-ml": "In a production ML pipeline, how do you handle unexpected data drift or extreme outliers without breaking model inference?",
+    "web-dev": "In a production web application, how do you handle asynchronous error boundaries and network request timeouts in the frontend gracefully?",
+    "data-science": "How would you detect multicollinearity between predictive features, and how does L1/L2 regularization address it?",
+    "cloud-devops": "In a microservices architecture, how do you ensure zero-downtime rolling updates when deploying a new Docker image to production?"
+  };
+
+  const fallbackScorecard = {
+    score: calculatedScore,
+    technicalRating,
+    communicationRating: isVagueOrUnknown ? "Needs Structure" : "Clear & Articulate",
+    hiringVerdict,
+    strengths: `Demonstrated engagement with ${targetRole} topics and willingness to tackle technical questions.`,
+    weaknesses: isVagueOrUnknown 
+      ? "Ensure you thoroughly practice technical terminology and explain system mechanics rather than giving short answers."
+      : "Continue practicing boundary conditions, error handling, and latency optimizations under timed interview pressure.",
+    modelAnswer: "Address both the theoretical definition and practical system tradeoffs with structured examples."
   };
 
   return NextResponse.json({
     isFinished,
     aiResponse: isFinished 
-      ? "Outstanding work! That completes our technical screening drill. I've prepared your comprehensive hiring scorecard below."
-      : fallbackQuestions[roleKey] || fallbackQuestions["ai-ml"],
-    scorecard: isFinished ? {
-      score: 86,
-      technicalRating: "Strong Candidate",
-      communicationRating: "Clear & Articulate",
-      hiringVerdict: "Recommended for Final Round",
-      strengths: `Clear articulation of core ${targetRole} principles and practical system design understanding.`,
-      weaknesses: "Continue practicing boundary conditions, error handling, and latency optimizations under timed interview pressure.",
-      modelAnswer: "Address both the theoretical definition and practical system tradeoffs with structured examples."
-    } : null
+      ? "Thank you for completing this technical interview round. I have synthesized your evaluation and compiled your hiring scorecard below."
+      : `${adaptiveFeedback}${fallbackQuestions[roleKey] || fallbackQuestions["ai-ml"]}`,
+    scorecard: isFinished ? fallbackScorecard : null,
+    feedback: isFinished ? fallbackScorecard : null
   });
 }

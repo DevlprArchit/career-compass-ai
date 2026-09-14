@@ -3,21 +3,36 @@
 @tailwind utilities;
 
 :root {
-  --background: #F6F5F1;
-  --foreground: #12203A;
+  --background: #F2EAD6;
+  --foreground: #1E1B18;
+  --overworld-parchment: #F2EAD6;
+  --overworld-surface: #FAF6EE;
+  --overworld-surface-deep: #EAE0CA;
+  --overworld-ink: #1E1B18;
+  --overworld-ink-muted: #685F53;
+  --overworld-quest: #2D6A4F;
+  --overworld-coin: #D9822B;
+  --overworld-mana: #2A6F97;
+  --overworld-hazard: #BA3B46;
+  --overworld-shadow: #D8CEBA;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-inter), sans-serif;
+  background-color: #F2EAD6;
+  color: #1E1B18;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", system-ui, sans-serif;
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .font-display {
-  font-family: var(--font-fraunces), serif;
+  font-family: "Pixelify Sans", "Space Mono", ui-monospace, monospace;
+}
+
+.font-pixel {
+  font-family: "Pixelify Sans", "Space Mono", ui-monospace, monospace;
 }
 
 /* Hide scrollbar for smooth mobile horizontal swipe */
@@ -48,3 +63,551 @@ body {
     padding: 20px !important;
   }
 }
+
+/* =========================================================================
+   UIVERSE OVERWORLD 16-BIT PIXEL EDITORIAL UI SYSTEM
+   ========================================================================= */
+
+/* Warm Cartography Parchment Canvas Texture */
+.bg-ambient-mesh {
+  background-color: #F2EAD6;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(217, 130, 43, 0.08) 0px, transparent 45%),
+    radial-gradient(at 100% 0%, rgba(42, 111, 151, 0.07) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(45, 106, 79, 0.07) 0px, transparent 50%),
+    linear-gradient(rgba(30, 27, 24, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 27, 24, 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+  background-attachment: fixed;
+}
+
+/* Overworld 16-Bit Chunky Tactile Card */
+.uiverse-card {
+  background: #FAF6EE;
+  border: 2px solid #1E1B18;
+  border-radius: 16px;
+  box-shadow: 3px 3px 0px #1E1B18;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.uiverse-card:hover {
+  box-shadow: 4px 4px 0px #1E1B18;
+}
+
+.uiverse-card-interactive {
+  background: #FAF6EE;
+  border: 2px solid #1E1B18;
+  border-radius: 16px;
+  box-shadow: 3px 3px 0px #1E1B18;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.uiverse-card-interactive:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0px #1E1B18;
+}
+
+.uiverse-card-interactive:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #1E1B18;
+}
+
+/* Uiverse Shimmer / Gleam Button */
+.uiverse-shimmer-btn {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.uiverse-shimmer-btn::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -120%;
+  width: 60%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 100%
+  );
+  transform: rotate(25deg);
+  transition: none;
+  pointer-events: none;
+}
+
+.uiverse-shimmer-btn:hover::after {
+  left: 160%;
+  transition: left 0.75s ease-in-out;
+}
+
+.uiverse-shimmer-btn:hover {
+  transform: translateY(-1px);
+}
+
+.uiverse-shimmer-btn:active {
+  transform: translateY(1px);
+}
+
+/* Overworld Chunky Tactile Button */
+.uiverse-btn-tactile {
+  background: #FAF6EE;
+  color: #1E1B18;
+  border: 2px solid #1E1B18;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0px #1E1B18;
+  font-weight: 700;
+  transition: all 0.12s ease;
+}
+
+.uiverse-btn-tactile:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #1E1B18;
+}
+
+.uiverse-btn-tactile:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #1E1B18;
+}
+
+/* Overworld Quest Green Button */
+.uiverse-btn-emerald {
+  background: #2D6A4F;
+  color: #FAF6EE;
+  border: 2px solid #1E1B18;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0px #1E1B18;
+  font-weight: 700;
+  transition: all 0.12s ease;
+}
+
+.uiverse-btn-emerald:hover {
+  background: #1B4332;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #1E1B18;
+}
+
+.uiverse-btn-emerald:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #1E1B18;
+}
+
+/* Overworld Gold / Coin Button */
+.uiverse-btn-gold {
+  background: #D9822B;
+  color: #FAF6EE;
+  border: 2px solid #1E1B18;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0px #1E1B18;
+  font-weight: 700;
+  transition: all 0.12s ease;
+}
+
+.uiverse-btn-gold:hover {
+  background: #C47120;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #1E1B18;
+}
+
+.uiverse-btn-gold:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #1E1B18;
+}
+
+/* Overworld Pill Segment Switch */
+.uiverse-pill-container {
+  background: #EAE0CA;
+  border: 2px solid #1E1B18;
+  border-radius: 14px;
+  box-shadow: 2px 2px 0px #1E1B18;
+  padding: 4px;
+}
+
+.uiverse-pill-tab {
+  transition: all 0.15s ease;
+  border-radius: 10px;
+}
+
+/* Overworld Form Input */
+.uiverse-input {
+  background: #FAF6EE;
+  color: #1E1B18;
+  border: 2px solid #1E1B18;
+  border-radius: 10px;
+  box-shadow: 2px 2px 0px rgba(30, 27, 24, 0.15);
+  transition: all 0.15s ease;
+}
+
+.uiverse-input:focus {
+  outline: none;
+  border-color: #D9822B;
+  box-shadow: 3px 3px 0px #1E1B18;
+  background: #FFFFFF;
+}
+
+/* Overworld Pixel Badge */
+.overworld-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1.5px solid #1E1B18;
+  border-radius: 8px;
+  box-shadow: 2px 2px 0px #1E1B18;
+  background: #FAF6EE;
+  font-family: 'Space Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+}
+
+/* Pulsing Status Dot */
+.uiverse-pulse-ring {
+  position: relative;
+  display: inline-flex;
+}
+
+.uiverse-pulse-ring::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background-color: currentColor;
+  opacity: 0.6;
+  animation: pulse-ring 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+/* 3-Dot Bouncing Wave Loader */
+.uiverse-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.uiverse-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: currentColor;
+  animation: uiverse-wave 1.4s infinite ease-in-out both;
+}
+
+.uiverse-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.uiverse-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes uiverse-wave {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Custom Overworld scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #EAE0CA;
+  border: 1px solid #1E1B18;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D9822B;
+  border: 1px solid #1E1B18;
+  box-shadow: inset 1px 1px 0px rgba(255, 255, 255, 0.4);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C47120;
+}
+
+/* Supporting Overworld Card Mappings */
+.lunerise-card,
+.glass-card,
+.glass-panel,
+.uiverse-cyber-card {
+  background: #FAF6EE;
+  border: 2px solid #1E1B18;
+  border-radius: 16px;
+  box-shadow: 3px 3px 0px #1E1B18;
+}
+
+.glass-interactive:hover,
+.uiverse-cyber-card:hover,
+.lunerise-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #1E1B18;
+}
+
+.lunerise-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 12px;
+  background-color: #1E1B18;
+  color: #FAF6EE;
+  border: 2px solid #1E1B18;
+  font-weight: 700;
+  box-shadow: 3px 3px 0px #1E1B18;
+  transition: all 0.15s ease;
+}
+
+.lunerise-pill-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #1E1B18;
+}
+
+.lunerise-pill-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #1E1B18;
+}
+
+.lunerise-pill-btn-white {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 12px;
+  background-color: #FAF6EE;
+  color: #1E1B18;
+  border: 2px solid #1E1B18;
+  font-weight: 700;
+  box-shadow: 3px 3px 0px #1E1B18;
+  transition: all 0.15s ease;
+}
+
+.lunerise-pill-btn-white:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #1E1B18;
+}
+
+.lunerise-pill-btn-white:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #1E1B18;
+}
+
+/* =========================================================================
+   UIVERSE ENHANCED MICRO-COMPONENTS & TACTILE CONTROLS
+   ========================================================================= */
+
+/* Striped Retro Progress Bars */
+@keyframes striped-flow {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 0; }
+}
+
+.uiverse-progress-striped {
+  background-size: 20px 20px;
+  animation: striped-flow 2s linear infinite;
+}
+
+.uiverse-progress-quest {
+  background-color: #2D6A4F;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.18) 0,
+    rgba(255, 255, 255, 0.18) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+}
+
+.uiverse-progress-coin {
+  background-color: #D9822B;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.22) 0,
+    rgba(255, 255, 255, 0.22) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+}
+
+.uiverse-progress-mana {
+  background-color: #2A6F97;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.2) 0,
+    rgba(255, 255, 255, 0.2) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+}
+
+.uiverse-progress-hazard {
+  background-color: #BA3B46;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.22) 0,
+    rgba(255, 255, 255, 0.22) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+}
+
+/* Tactile Beveled Card with Inset Highlight */
+.uiverse-card-beveled {
+  background: #FAF6EE;
+  border: 2px solid #1E1B18;
+  border-radius: 16px;
+  box-shadow: 3px 3px 0px #1E1B18, inset 1px 1px 0px rgba(255, 255, 255, 0.7);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.uiverse-card-beveled:hover {
+  box-shadow: 4px 4px 0px #1E1B18, inset 1px 1px 0px rgba(255, 255, 255, 0.9);
+}
+
+/* Mechanical 3D Toggle Switch */
+.uiverse-toggle-tactile {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  background-color: #EAE0CA;
+  border: 2px solid #1E1B18;
+  border-radius: 9999px;
+  box-shadow: 2px 2px 0px #1E1B18;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.uiverse-toggle-tactile[data-checked="true"] {
+  background-color: #2D6A4F;
+}
+
+.uiverse-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background-color: #FAF6EE;
+  border: 2px solid #1E1B18;
+  border-radius: 9999px;
+  box-shadow: 1px 1px 0px #1E1B18;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.uiverse-toggle-tactile[data-checked="true"] .uiverse-toggle-thumb {
+  transform: translateX(22px);
+  background-color: #FAF6EE;
+}
+
+/* Radar Beacon Glowing Ping */
+.uiverse-radar-beacon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.uiverse-radar-beacon::before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.45;
+  animation: radar-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes radar-ping {
+  75%, 100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* Elevated Tactile Form Input */
+.uiverse-input-elevated {
+  background: #FAF6EE;
+  color: #1E1B18;
+  border: 2px solid #1E1B18;
+  border-radius: 12px;
+  box-shadow: 2px 2px 0px #1E1B18;
+  transition: all 0.15s ease;
+}
+
+.uiverse-input-elevated:focus {
+  outline: none;
+  background: #FFFFFF;
+  border-color: #D9822B;
+  box-shadow: 3px 3px 0px #1E1B18;
+}
+
+/* Retro Chip Tag */
+.uiverse-chip-retro {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 2px solid #1E1B18;
+  border-radius: 10px;
+  box-shadow: 2px 2px 0px #1E1B18;
+  background: #FAF6EE;
+  font-family: "Space Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  transition: all 0.12s ease;
+}
+
+.uiverse-chip-retro:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #1E1B18;
+}
+
+/* Ocean Blue Tactile Button */
+.uiverse-btn-ocean {
+  background: #2A6F97;
+  color: #FAF6EE;
+  border: 2px solid #1E1B18;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0px #1E1B18;
+  font-weight: 700;
+  transition: all 0.12s ease;
+}
+
+.uiverse-btn-ocean:hover {
+  background: #1D5373;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #1E1B18;
+}
+
+.uiverse-btn-ocean:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #1E1B18;
+}
+
+

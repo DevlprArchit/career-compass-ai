@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { safeParseLLMJson, ACTIVE_GEMINI_MODELS } from "@/lib/gemini-safe-json";
 
 export async function POST(req: Request) {
   let body: any = {};
@@ -11,8 +12,7 @@ export async function POST(req: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (apiKey) {
-    const candidateModels = ["gemini-3.6-flash"];
-    for (const modelName of candidateModels) {
+    for (const modelName of ACTIVE_GEMINI_MODELS) {
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
@@ -54,8 +54,9 @@ Return ONLY a JSON object strictly matching this schema:
           setTimeout(() => reject(new Error("Timeout after 12s")), 12000)
         );
         const result = await Promise.race([model.generateContent(prompt), timeoutPromise]) as any;
-        const parsed = JSON.parse(result.response.text());
-        if (parsed.verdict && parsed.timeComplexity) {
+        const rawText = result.response.text();
+        const parsed = safeParseLLMJson<any>(rawText, null);
+        if (parsed && parsed.verdict && parsed.timeComplexity) {
           return NextResponse.json(parsed);
         }
       } catch (error: any) {

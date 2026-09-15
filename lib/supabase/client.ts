@@ -239,7 +239,7 @@ export async function submitAwsLeaderApplication(app: {
       prior_experience: app.priorCloudExperience,
       leadership_reason: app.leadershipReason,
       initiative: 'AWS Student Builder Campus Leader',
-      project_credit: 'Team Udbhav by Archit Sharma'
+      project_credit: 'Archit Sharma · Campus Leader, Himachal Institute of Engineering and Technology, Shahpur (HIET, Shahpur)'
     });
   return { data, error };
 }

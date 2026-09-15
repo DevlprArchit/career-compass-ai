@@ -1551,11 +1551,15 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               </div>
               <span className="font-display font-bold text-base md:text-lg tracking-wide text-ink">CareerCompass</span>
               {/* AWS Student Builder Campus Leader Badge */}
-              <div className="hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-[#1E1B18] text-[11px] font-bold ml-2">
+              <button 
+                onClick={() => setIsAwsModalOpen(true)}
+                className="hidden sm:inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-[#FAF6EE] hover:bg-[#EAE0CA] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] text-[#1E1B18] text-[11px] font-bold ml-2 cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
+                title="AWS Student Builder Initiative · Click to apply for Leader & Goodies!"
+              >
                 <span className="uiverse-radar-beacon w-2.5 h-2.5 rounded-full bg-[#D9822B] text-[#D9822B]"></span>
                 <span>AWS Student Builder</span>
                 <span className="text-[9px] bg-[#D9822B] text-white px-1.5 py-0.5 rounded-xs font-bold uppercase tracking-wider">Campus Leader</span>
-              </div>
+              </button>
             </div>
 
             {/* Desktop Nav */}
@@ -1644,11 +1648,52 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           </div>
 
           {/* AWS Student Builder Campus Leader Spotlight Banner */}
-          <div className="pt-3 flex items-center justify-center">
-            <div className="inline-flex flex-wrap items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] text-[#1E1B18] text-xs">
-              <span className="w-2.5 h-2.5 rounded-xs bg-[#D9822B]"></span>
-              <span className="font-bold">AWS Student Builder Campus Leader Initiative:</span>
-              <span className="text-[#685F53] font-medium">Free AWS Skill Builder (CLF-C02) & 3D Cloud Quest Badges</span>
+          <div className="pt-4 max-w-2xl mx-auto text-left">
+            <div className="rounded-2xl bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld p-5 sm:p-6 relative overflow-hidden transition-all hover:translate-y-[-1px]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                <div className="space-y-2 max-w-lg">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md bg-[#D9822B] text-white text-[11px] font-pixel font-bold">
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                      <span>Join AWS Student Builder</span>
+                    </div>
+                    <span className="text-[11px] px-2.5 py-0.5 rounded-md bg-[#2D6A4F] text-white font-pixel font-bold border border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18]">
+                      ★ Official Campus Group Leader Initiative
+                    </span>
+                  </div>
+
+                  <h3 className="font-pixel text-sm sm:text-base font-bold text-[#1E1B18] leading-snug">
+                    An initiative led by Archit Sharma · Campus Leader for Himachal Institute of Engineering and Technology, Shahpur (HIET, Shahpur)
+                  </h3>
+
+                  <p className="text-xs text-[#685F53] leading-relaxed font-medium">
+                    Apply to become an official Campus Group Leader, earn free AWS cloud credits ($), win official AWS merchandise swag boxes, and unlock 100% free certification exam vouchers.
+                  </p>
+
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <span className="text-[10px] bg-[#F2EAD6] border border-[#1E1B18]/30 px-2 py-0.5 rounded font-mono text-[#1E1B18]">
+                      🎁 Win AWS Goodies & Swags
+                    </span>
+                    <span className="text-[10px] bg-[#F2EAD6] border border-[#1E1B18]/30 px-2 py-0.5 rounded font-mono text-[#1E1B18]">
+                      👑 Campus Leader Status
+                    </span>
+                    <span className="text-[10px] bg-[#F2EAD6] border border-[#1E1B18]/30 px-2 py-0.5 rounded font-mono text-[#1E1B18]">
+                      💰 Free AWS Cloud Credits ($)
+                    </span>
+                    <span className="text-[10px] bg-[#F2EAD6] border border-[#1E1B18]/30 px-2 py-0.5 rounded font-mono text-[#1E1B18]">
+                      🎟️ 100% Off Exam Vouchers
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsAwsModalOpen(true)}
+                  className="px-5 py-3 rounded-xl bg-[#D9822B] hover:bg-[#C07224] text-white border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-pixel font-bold text-xs flex items-center justify-center space-x-2 shrink-0 transition-all cursor-pointer"
+                >
+                  <Gift className="w-4 h-4 text-white" />
+                  <span>Apply for Leader & Swags</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1673,37 +1718,38 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           </div>
         </section>
 
-        {/* SECTION 2: COMPACT 4-PILLAR OVERVIEW */}
-        <section id="overview" className="py-10 px-6 md:px-12 bg-hairline/20 border-t border-b border-hairline">
+        {/* SECTION 2: 4-PILLAR OVERVIEW */}
+        <section id="overview" className="py-12 px-6 md:px-12 bg-hairline/20 border-t-2 border-b-2 border-hairline-dark">
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="text-center space-y-1 max-w-xl mx-auto">
               <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Structured Framework</span>
-              <h2 className="font-display text-2xl font-semibold text-ink">Everything you need to level up</h2>
+              <h2 className="font-display text-2xl md:text-3xl font-bold text-ink">Everything you need to level up</h2>
+              <p className="text-xs text-[#685F53]">Four integrated engines engineered for placement success</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="border border-hairline rounded-xl p-4 bg-paper space-y-2 shadow-xs">
-                <div className="w-7 h-7 rounded bg-path/10 text-path flex items-center justify-center font-bold text-xs font-mono">01</div>
-                <h3 className="font-display text-sm font-semibold text-ink">Skill Diagnostic</h3>
-                <p className="text-xs text-ink-40 leading-relaxed">5-minute evaluation to pinpoint your strengths and identify key focus areas.</p>
+              <div className="border-2 border-[#1E1B18] rounded-xl p-5 bg-[#FAF6EE] space-y-2.5 shadow-overworld hover:translate-y-[-2px] transition-all">
+                <div className="w-8 h-8 rounded-lg bg-[#2D6A4F] text-white flex items-center justify-center font-bold text-xs font-mono border-2 border-[#1E1B18] shadow-xs">01</div>
+                <h3 className="font-display text-sm font-bold text-ink">Skill Diagnostic</h3>
+                <p className="text-xs text-ink-40 leading-relaxed font-medium">5-minute evaluation to pinpoint your strengths and identify key focus areas.</p>
               </div>
 
-              <div className="border border-hairline rounded-xl p-4 bg-paper space-y-2 shadow-xs">
-                <div className="w-7 h-7 rounded bg-waypoint/15 text-waypoint flex items-center justify-center font-bold text-xs font-mono">02</div>
-                <h3 className="font-display text-sm font-semibold text-ink">Channelized Roadmap</h3>
-                <p className="text-xs text-ink-40 leading-relaxed">12-week milestones spanning theory, code projects, and DSA interview prep.</p>
+              <div className="border-2 border-[#1E1B18] rounded-xl p-5 bg-[#FAF6EE] space-y-2.5 shadow-overworld hover:translate-y-[-2px] transition-all">
+                <div className="w-8 h-8 rounded-lg bg-[#D9822B] text-white flex items-center justify-center font-bold text-xs font-mono border-2 border-[#1E1B18] shadow-xs">02</div>
+                <h3 className="font-display text-sm font-bold text-ink">Channelized Roadmap</h3>
+                <p className="text-xs text-ink-40 leading-relaxed font-medium">12-week milestones spanning theory, code projects, and DSA interview prep.</p>
               </div>
 
-              <div className="border border-hairline rounded-xl p-4 bg-paper space-y-2 shadow-xs">
-                <div className="w-7 h-7 rounded bg-ink text-paper flex items-center justify-center font-bold text-xs font-mono">03</div>
-                <h3 className="font-display text-sm font-semibold text-ink">Free Certifications</h3>
-                <p className="text-xs text-ink-40 leading-relaxed">Accredited masterclasses from Harvard, IBM, Kaggle & freeCodeCamp.</p>
+              <div className="border-2 border-[#1E1B18] rounded-xl p-5 bg-[#FAF6EE] space-y-2.5 shadow-overworld hover:translate-y-[-2px] transition-all">
+                <div className="w-8 h-8 rounded-lg bg-[#1E1B18] text-white flex items-center justify-center font-bold text-xs font-mono border-2 border-[#1E1B18] shadow-xs">03</div>
+                <h3 className="font-display text-sm font-bold text-ink">Free Certifications</h3>
+                <p className="text-xs text-ink-40 leading-relaxed font-medium">Accredited masterclasses from Harvard, IBM, AWS Skill Builder & freeCodeCamp.</p>
               </div>
 
-              <div className="border border-hairline rounded-xl p-4 bg-paper space-y-2 shadow-xs">
-                <div className="w-7 h-7 rounded bg-path/20 text-path flex items-center justify-center font-bold text-xs font-mono">04</div>
-                <h3 className="font-display text-sm font-semibold text-ink">ATS Resume Builder</h3>
-                <p className="text-xs text-ink-40 leading-relaxed">Instant vector resume canvas formatting real projects with 1-click PDF export.</p>
+              <div className="border-2 border-[#1E1B18] rounded-xl p-5 bg-[#FAF6EE] space-y-2.5 shadow-overworld hover:translate-y-[-2px] transition-all">
+                <div className="w-8 h-8 rounded-lg bg-[#2A6F97] text-white flex items-center justify-center font-bold text-xs font-mono border-2 border-[#1E1B18] shadow-xs">04</div>
+                <h3 className="font-display text-sm font-bold text-ink">ATS Resume Studio</h3>
+                <p className="text-xs text-ink-40 leading-relaxed font-medium">Vector resume canvas with instant PDF export & PowerPoint presentation decks.</p>
               </div>
             </div>
           </div>
@@ -2675,6 +2721,54 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
               );
             })()}
 
+            {/* AWS Student Builder Campus Group Leader Spotlight Banner */}
+            <div className="bg-[#FAF6EE] rounded-2xl border-2 border-[#1E1B18] shadow-overworld p-5 sm:p-6 relative overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                <div className="space-y-2 max-w-2xl">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md bg-[#D9822B] text-white text-[11px] font-pixel font-bold">
+                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                      <span>Join AWS Student Builder</span>
+                    </div>
+                    <span className="text-[11px] px-2.5 py-0.5 rounded-md bg-[#2D6A4F] text-white font-pixel font-bold border border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18]">
+                      ★ Official Campus Group Leader Initiative
+                    </span>
+                  </div>
+
+                  <h3 className="font-pixel text-base sm:text-lg font-bold text-[#1E1B18] leading-snug">
+                    An initiative led by Archit Sharma · Campus Leader for Himachal Institute of Engineering and Technology, Shahpur (HIET, Shahpur)
+                  </h3>
+
+                  <p className="text-xs text-[#685F53] leading-relaxed font-medium">
+                    Apply through CareerCompass AI to lead your college AWS cohort, earn free AWS cloud credits ($), receive official AWS merchandise swag boxes, and win 100% free certification exam vouchers.
+                  </p>
+
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <span className="text-[10px] bg-[#F2EAD6] border border-[#1E1B18]/30 px-2 py-0.5 rounded font-mono text-[#1E1B18]">
+                      🎁 Win AWS Swags & Goodies
+                    </span>
+                    <span className="text-[10px] bg-[#F2EAD6] border border-[#1E1B18]/30 px-2 py-0.5 rounded font-mono text-[#1E1B18]">
+                      👑 Campus Leader Status
+                    </span>
+                    <span className="text-[10px] bg-[#F2EAD6] border border-[#1E1B18]/30 px-2 py-0.5 rounded font-mono text-[#1E1B18]">
+                      💰 Free AWS Cloud Credits ($)
+                    </span>
+                    <span className="text-[10px] bg-[#F2EAD6] border border-[#1E1B18]/30 px-2 py-0.5 rounded font-mono text-[#1E1B18]">
+                      🎟️ 100% Off Exam Vouchers
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsAwsModalOpen(true)}
+                  className="px-5 py-3 rounded-xl bg-[#D9822B] hover:bg-[#C07224] text-white border-2 border-[#1E1B18] shadow-[3px_3px_0px_#1E1B18] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-pixel font-bold text-xs flex items-center justify-center space-x-2 shrink-0 transition-all cursor-pointer"
+                >
+                  <Gift className="w-4 h-4 text-white" />
+                  <span>Apply for Leader & Swags</span>
+                </button>
+              </div>
+            </div>
+
             <div className="border-b border-hairline pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2 text-xs font-mono mb-2">
@@ -3234,7 +3328,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                         <span>AWS Student Builder Center · Campus Leader Program</span>
                       </div>
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#2D6A4F] text-white text-[11px] font-pixel font-bold border border-[#1E1B18] shadow-[1px_1px_0px_#1E1B18]">
-                        ★ A project undertaken by Team Udbhav by Archit Sharma
+                        ★ Led by Archit Sharma · Campus Leader for Himachal Institute of Engineering and Technology, Shahpur (HIET, Shahpur)
                       </span>
                     </div>
                     <h3 className="font-pixel text-xl sm:text-2xl font-bold text-[#1E1B18]">

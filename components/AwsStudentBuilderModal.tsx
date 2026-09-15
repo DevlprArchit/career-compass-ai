@@ -87,14 +87,14 @@ export default function AwsStudentBuilderModal({
     }
 
     setIsSubmitting(true);
-    const appId = "AWS-UDBHAV-" + Math.floor(1000 + Math.random() * 9000);
+    const appId = "AWS-HIET-" + Math.floor(1000 + Math.random() * 9000);
 
     const payload = {
       appId,
       ...formData,
       submittedAt: new Date().toISOString(),
       initiative: "AWS Student Builder Campus Leader",
-      projectCredit: "Team Udbhav by Archit Sharma"
+      projectCredit: "Archit Sharma · Campus Leader, Himachal Institute of Engineering and Technology, Shahpur (HIET, Shahpur)"
     };
 
     // Save to localStorage
@@ -134,7 +134,7 @@ export default function AwsStudentBuilderModal({
             <div className="flex items-center gap-1.5 text-xs text-[#FAF8F3]/80">
               <Sparkles className="w-3.5 h-3.5 text-[#D9822B]" />
               <span className="font-medium text-[#FAF8F3]">
-                A project undertaken by <strong className="text-[#D9822B]">Team Udbhav by Archit Sharma</strong>
+                An initiative led by <strong className="text-[#D9822B]">Archit Sharma</strong> · Campus Leader for Himachal Institute of Engineering and Technology, Shahpur (HIET, Shahpur)
               </span>
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function AwsStudentBuilderModal({
                   Application Received!
                 </h3>
                 <p className="text-xs sm:text-sm text-[#1E1B18]/70 max-w-md mx-auto">
-                  Thank you for applying to the <strong>AWS Student Builder Campus Leader Initiative</strong>, an official project undertaken by <strong>Team Udbhav by Archit Sharma</strong>.
+                  Thank you for applying to the <strong>AWS Student Builder Campus Leader Initiative</strong>, an official program led by <strong>Archit Sharma</strong>, Campus Leader for Himachal Institute of Engineering and Technology, Shahpur (HIET, Shahpur).
                 </p>
               </div>
 
@@ -313,11 +313,11 @@ export default function AwsStudentBuilderModal({
                   />
                 </div>
 
-                {/* Team Udbhav Endorsement Banner */}
+                {/* HIET Campus Leader Banner */}
                 <div className="bg-[#FAF6EE] p-3 rounded-xl border border-[#1E1B18]/15 flex items-center justify-between text-[11px] text-[#1E1B18]/70">
                   <span className="flex items-center gap-1.5">
                     <ShieldCheck className="w-4 h-4 text-[#2D6A4F] shrink-0" />
-                    <span>Sponsored by <strong>Team Udbhav</strong> · Led by <strong>Archit Sharma</strong></span>
+                    <span>Initiative led by <strong>Archit Sharma</strong> · Campus Leader, HIET Shahpur</span>
                   </span>
                   <span className="font-mono text-[10px] text-[#2D6A4F] font-bold">100% Free Access</span>
                 </div>

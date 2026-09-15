@@ -20,7 +20,9 @@ import {
   Eye,
   FileText,
   GraduationCap,
-  FolderDown
+  FolderDown,
+  Presentation,
+  Printer
 } from "lucide-react";
 import { UserProfile, cleanBadge } from "@/lib/discovery-engine";
 import { CERTIFIED_COURSES } from "@/lib/certified-courses";
@@ -133,6 +135,8 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
     actionableTips: string[];
   } | null>(null);
   const [showAtsModal, setShowAtsModal] = useState<boolean>(false);
+  const [isExportingPDF, setIsExportingPDF] = useState<boolean>(false);
+  const [isExportingPPT, setIsExportingPPT] = useState<boolean>(false);
 
   // Auto-save to localStorage
   useEffect(() => {
@@ -385,9 +389,142 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
     }
   };
 
-  // Trigger Print to PDF
+  // Trigger Clean Print to PDF (Zero Blank Pages via Isolated Iframe)
   const handlePrintPDF = () => {
-    window.print();
+    setIsExportingPDF(true);
+    try {
+      // Ensure preview canvas is active if on mobile/small screen
+      if (mobileTab !== "preview") {
+        setMobileTab("preview");
+      }
+
+      setTimeout(() => {
+        const resumeEl = document.getElementById("resume-print-area");
+        if (!resumeEl) {
+          window.print();
+          setIsExportingPDF(false);
+          return;
+        }
+
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "fixed";
+        iframe.style.right = "0";
+        iframe.style.bottom = "0";
+        iframe.style.width = "0";
+        iframe.style.height = "0";
+        iframe.style.border = "0";
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentWindow?.document;
+        if (!doc) {
+          window.print();
+          setIsExportingPDF(false);
+          return;
+        }
+
+        doc.open();
+        doc.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <title>${resumeData.personalInfo.name || "Candidate"} - Resume</title>
+              <style>
+                @page {
+                  size: A4 portrait;
+                  margin: 8mm 10mm 8mm 10mm;
+                }
+                * {
+                  box-sizing: border-box;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                html, body {
+                  margin: 0;
+                  padding: 0;
+                  background: #ffffff !important;
+                  color: #151E33 !important;
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                  font-size: 10pt;
+                  line-height: 1.4;
+                }
+                #resume-print-area {
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  min-height: auto !important;
+                  display: block !important;
+                  visibility: visible !important;
+                }
+                h1 { font-size: 20pt !important; margin: 0 0 4pt 0 !important; font-weight: 700 !important; }
+                h2 { font-size: 12pt !important; margin: 8pt 0 4pt 0 !important; font-weight: 700 !important; }
+                h3 { font-size: 10.5pt !important; margin: 3pt 0 2pt 0 !important; }
+                p, li, span { font-size: 9.5pt !important; }
+                ul { margin-top: 2pt !important; margin-bottom: 6pt !important; padding-left: 14pt !important; }
+                li { margin-bottom: 2pt !important; }
+              </style>
+            </head>
+            <body>
+              ${resumeEl.outerHTML}
+            </body>
+          </html>
+        `);
+        doc.close();
+
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+            setIsExportingPDF(false);
+          }, 1000);
+        }, 350);
+      }, 100);
+    } catch (err) {
+      console.error("Print error:", err);
+      window.print();
+      setIsExportingPDF(false);
+    }
+  };
+
+  // Export Executive Candidate PowerPoint Presentation (.pptx)
+  const handleExportPPT = async () => {
+    setIsExportingPPT(true);
+    try {
+      const res = await fetch("/api/resume/export-ppt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumeData,
+          selectedTrackTitle
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error("Server returned status " + res.status);
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const candidateSlug = (resumeData.personalInfo?.name || "Candidate").trim().replace(/[^a-zA-Z0-9]/g, "_");
+      a.download = `${candidateSlug}_Executive_Resume.pptx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("PPT export error:", err);
+      alert("Failed to export PowerPoint presentation. Please try again.");
+    } finally {
+      setIsExportingPPT(false);
+    }
   };
 
   return (
@@ -463,10 +600,23 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
           {/* Print / Download PDF Button */}
           <button
             onClick={handlePrintPDF}
-            className="uiverse-btn-tactile bg-[#1E1B18] hover:bg-[#2D2A26] text-[#FAF6EE] text-xs font-pixel px-4 py-2 rounded-xl flex items-center space-x-2 border-2 border-[#1E1B18] shadow-overworld transition-all"
+            disabled={isExportingPDF}
+            className="uiverse-btn-tactile bg-[#1E1B18] hover:bg-[#2D2A26] text-[#FAF6EE] text-xs font-pixel px-4 py-2 rounded-xl flex items-center space-x-2 border-2 border-[#1E1B18] shadow-overworld transition-all disabled:opacity-50"
+            title="Download clean single-page vector PDF (Zero blank pages guaranteed)"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Export PDF</span>
+            <span>{isExportingPDF ? "Preparing PDF..." : "Export PDF"}</span>
+          </button>
+
+          {/* Export PPT Presentation Button */}
+          <button
+            onClick={handleExportPPT}
+            disabled={isExportingPPT}
+            className="uiverse-btn-tactile bg-[#D9822B] hover:bg-[#C07224] text-white text-xs font-pixel px-4 py-2 rounded-xl flex items-center space-x-2 border-2 border-[#1E1B18] shadow-overworld transition-all disabled:opacity-50"
+            title="Download executive PowerPoint presentation (.pptx)"
+          >
+            <Presentation className="w-3.5 h-3.5 text-white" />
+            <span>{isExportingPPT ? "Building PPT..." : "Export PPT"}</span>
           </button>
         </div>
       </div>

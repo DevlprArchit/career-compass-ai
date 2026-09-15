@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS public.interview_sessions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. AWS Student Builder Campus Leader Applications (Team Udbhav by Archit Sharma)
+-- 6. AWS Student Builder Campus Leader Applications (Archit Sharma · Campus Leader, HIET Shahpur)
 CREATE TABLE IF NOT EXISTS public.aws_applications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     app_id TEXT UNIQUE NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS public.aws_applications (
     prior_experience TEXT,
     leadership_reason TEXT,
     initiative TEXT DEFAULT 'AWS Student Builder Campus Leader',
-    project_credit TEXT DEFAULT 'Team Udbhav by Archit Sharma',
+    project_credit TEXT DEFAULT 'Archit Sharma · Campus Leader, Himachal Institute of Engineering and Technology, Shahpur (HIET, Shahpur)',
     status TEXT DEFAULT 'under_review',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

@@ -598,7 +598,7 @@ export default function StudentProfile({
                     Join AWS Student Builder Center · Become a Campus Leader
                   </h3>
                   <p className="text-xs text-[#1E1B18]/75 leading-relaxed">
-                    A project undertaken by <strong className="text-[#D9822B]">Team Udbhav by Archit Sharma</strong>. Apply to win official AWS swags & goodies, lead student cloud workshops, receive free AWS cloud money ($ credits), and earn 100% free certification exam vouchers!
+                    An initiative led by <strong className="text-[#D9822B]">Archit Sharma</strong> · Campus Leader for Himachal Institute of Engineering and Technology, Shahpur (HIET, Shahpur). Apply to win official AWS swags & goodies, lead student cloud workshops, receive free AWS cloud money ($ credits), and earn 100% free certification exam vouchers!
                   </p>
                 </div>
                 <button

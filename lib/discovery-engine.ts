@@ -42,11 +42,12 @@ export function cleanBadge(text?: string): string {
 }
 
 export const DEGREE_OPTIONS = [
-  "Undergraduate (CS / IT / Engineering)",
-  "Recent Graduate (Seeking 1st Tech Role)",
-  "Career Switcher / Self-Taught",
-  "Junior Software Engineer",
-  "Postgraduate (M.Tech / MS / PhD)"
+  "Undergraduate / Bachelor's (B.Tech, B.E., BCA, B.Sc, B.Com, BBA, B.A.)",
+  "Postgraduate / Master's (M.Tech, MCA, M.Sc, MBA, M.Com, M.A., MS)",
+  "Recent Graduate / Degree Holder (All Disciplines)",
+  "Diploma / Polytechnic / Vocational Degree (Higher Studies)",
+  "Career Switcher / Self-Taught Post-Secondary Learner",
+  "Working Professional / Upskilling Learner"
 ];
 
 export const ACADEMIC_SEMESTER_OPTIONS = [
@@ -80,26 +81,26 @@ export const SPECIALIZATION_TRADES = [
   {
     id: "ai-ml-engineer",
     title: "AI & Machine Learning Engineer",
-    shortDesc: "PyTorch, Transformers, LLM inference pipelines, and production MLOps.",
-    matchReason: "High demand across high-growth startups and tech enterprises."
+    shortDesc: "PyTorch, Transformers, LLM prompt workflows, and AI product development.",
+    matchReason: "High demand across startups, tech enterprises, and forward-looking industries."
   },
   {
     id: "fullstack-python",
     title: "Full-Stack Engineer (React + Python)",
-    shortDesc: "Next.js frontends, FastAPI backends, relational databases, and REST APIs.",
-    matchReason: "Highest volume of engineering opportunities across industry sectors."
+    shortDesc: "Modern web frontends, backend APIs, relational databases, and interactive apps.",
+    matchReason: "Versatile, accessible pathway for all builders to create digital products."
   },
   {
     id: "data-scientist",
     title: "Data Scientist & Analytics Engineer",
-    shortDesc: "Pandas/NumPy data processing, statistical modeling, and ML analysis.",
-    matchReason: "Directly bridges analytics, business intelligence, and predictive modeling."
+    shortDesc: "Data manipulation, business analytics, statistical modeling, and insights reporting.",
+    matchReason: "Ideal bridge for analytical, commerce, math, business, and science backgrounds."
   },
   {
     id: "backend-cloud",
     title: "Backend & Cloud Systems Engineer",
-    shortDesc: "High-throughput APIs, Docker containerization, PostgreSQL, and Linux.",
-    matchReason: "Core architecture for scalable web services and cloud infrastructure."
+    shortDesc: "APIs, cloud architecture, Docker containers, database management, and Linux systems.",
+    matchReason: "High-value infrastructure backbone powering internet applications."
   }
 ];
 

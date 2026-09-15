@@ -425,7 +425,7 @@ export default function StudentProfile({
             </div>
 
             <p className="text-sm text-[#1E1B18]/80 max-w-2xl leading-relaxed">
-              {formData.bio || (formData.name ? "Engineering candidate preparing for campus recruitment and technical interviews." : "No bio added yet. Click 'Edit Profile' to add your summary, target trade, and career links.")}
+              {formData.bio || (formData.name ? "Higher education student & career builder preparing for campus recruitment, internships, and placement opportunities." : "No bio added yet. Click 'Edit Profile' to add your summary, target trade, and career links.")}
             </p>
 
             {/* Academic & Geographic Meta Badges */}
@@ -450,7 +450,7 @@ export default function StudentProfile({
             <div className="inline-flex items-center gap-2 bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-overworld rounded-xl px-3.5 py-2 text-xs text-[#1E1B18] mt-2">
               <Briefcase className="w-3.5 h-3.5 text-[#2A6F97]" />
               <span className="font-pixel text-[11px]">TARGET:</span>
-              <span className="font-semibold">{cleanBadge(formData.targetRole || user?.specializationTrade || "Software Engineering")}</span>
+              <span className="font-semibold">{cleanBadge(formData.targetRole || user?.specializationTrade || "Professional Track")}</span>
               <span className="text-[#1E1B18]/30">|</span>
               <span className="font-pixel text-[11px]">BAND:</span>
               <span className="text-[#2A6F97] font-mono font-bold">{formData.targetCtc || "Market Competitive"}</span>
@@ -966,10 +966,10 @@ export default function StudentProfile({
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-[#1E1B18] font-display">
-                Featured Engineering Projects
+                Featured Projects & Portfolio Work
               </h3>
               <p className="text-xs text-[#1E1B18]/70">
-                Showcase your hands-on code to recruiters and hiring managers.
+                Showcase your practical work and capstones to recruiters and hiring managers.
               </p>
             </div>
             <button

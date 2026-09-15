@@ -90,9 +90,9 @@ export default function PublicProfilePage() {
           setProfile({
             name: data.name || "Candidate",
             username: usernameParam,
-            bio: data.industry || "Software Engineer specializing in scalable full-stack and intelligent cloud systems.",
-            college: "Computer Science & Engineering",
-            degree: data.experience_level || "B.Tech in Computer Science",
+            bio: data.industry || "Ambitious professional building practical skills, real-world projects, and career mastery.",
+            college: "University / Higher Studies Institute",
+            degree: data.experience_level || "Undergraduate / Bachelor's Degree",
             graduationYear: "Class of 2026",
             location: "Bangalore / Remote",
             targetRole: data.target_role || "Full-Stack Software Engineer",
@@ -135,8 +135,8 @@ export default function PublicProfilePage() {
               name: u.name || "Alex Rivera",
               username: u.username || usernameParam,
               bio: u.bio || "Full-stack engineer passionate about scalable cloud architectures, high-performance web applications, and autonomous AI systems.",
-              college: u.college || "School of Computing & Engineering",
-              degree: u.degree || "B.Tech in Computer Science & Engineering",
+              college: u.college || "University / College of Higher Studies",
+              degree: u.degree || "Undergraduate / Bachelor's Degree",
               graduationYear: u.graduationYear || "Class of 2026",
               location: u.location || "Bangalore, India",
               targetRole: u.targetRole || u.specializationTrade || "Full-Stack Web & Systems Engineer",
@@ -174,8 +174,8 @@ export default function PublicProfilePage() {
         name: cleanName || "Alex Rivera",
         username: usernameParam,
         bio: "Full-stack engineer passionate about scalable cloud architectures, high-performance web applications, and autonomous AI systems.",
-        college: "School of Computing & Engineering",
-        degree: "B.Tech in Computer Science & Engineering",
+        college: "University / College of Higher Studies",
+        degree: "Undergraduate / Bachelor's Degree",
         graduationYear: "Class of 2026",
         location: "Bangalore, India",
         targetRole: "Full-Stack Web & Systems Engineer",
@@ -430,7 +430,7 @@ export default function PublicProfilePage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Terminal className="w-5 h-5 text-[#2D6A4F]" />
-                <h2 className="text-lg font-bold text-[#1E1B18] tracking-tight font-display">Featured Engineering Projects</h2>
+                <h2 className="text-lg font-bold text-[#1E1B18] tracking-tight font-display">Featured Projects & Practical Work</h2>
               </div>
               <span className="text-xs font-mono font-semibold text-[#1E1B18]/50">{profile.projects.length} Repositories</span>
             </div>

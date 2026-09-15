@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     pres.layout = "LAYOUT_16x9";
     pres.author = resumeData.personalInfo?.name || "Candidate";
     pres.company = "CareerCompass AI";
-    pres.title = `${resumeData.personalInfo?.name || "Candidate"} - Engineering Portfolio Resume`;
+    pres.title = `${resumeData.personalInfo?.name || "Candidate"} - Executive Career & Technical Portfolio Resume`;
 
     const trackTitle = selectedTrackTitle || "Software Engineer";
 
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       x: 0.9, y: 2.25, w: 11.5, h: 0.35,
       fontSize: 11, bold: true, color: "D9822B", fontFace: "Arial"
     });
-    slide1.addText(resumeData.summary || "Results-driven engineer specializing in production development, algorithmic problem solving, and modern cloud architectures.", {
+    slide1.addText(resumeData.summary || "Results-driven professional specializing in practical development, analytical problem solving, and modern digital architectures.", {
       x: 0.9, y: 2.65, w: 11.5, h: 1.1,
       fontSize: 12, color: "2D2A26", fontFace: "Arial", lineSpacingMultiple: 1.25
     });
@@ -76,10 +76,10 @@ export async function POST(req: NextRequest) {
       fontSize: 12, color: "1E1B18", fontFace: "Arial", lineSpacingMultiple: 1.3
     });
 
-    // SLIDE 2: Engineering Projects & Experience
+    // SLIDE 2: Featured Projects & Practical Experience
     const slide2 = pres.addSlide();
     slide2.background = { color: "FAF8F3" };
-    slide2.addText("PROJECTS & PRODUCTION EXPERIENCE", {
+    slide2.addText("FEATURED PROJECTS & PRACTICAL EXPERIENCE", {
       x: 0.6, y: 0.5, w: 12.1, h: 0.5,
       fontSize: 20, bold: true, color: "1E1B18", fontFace: "Arial"
     });
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
     });
     const eduLines = (resumeData.education || []).map((e: any) => 
       `• ${e.degree} — ${e.institution} (${e.duration}) ${e.score ? `[CGPA/GPA: ${e.score}]` : ""}`
-    ).join("\n") || "• Bachelor of Technology in Computer Science & Engineering";
+    ).join("\n") || "• Bachelor's Degree / Undergraduate (Higher Studies)";
     slide3.addText(eduLines, {
       x: 0.9, y: 1.75, w: 11.5, h: 0.9,
       fontSize: 11.5, color: "1E1B18", fontFace: "Arial"

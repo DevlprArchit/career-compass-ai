@@ -135,7 +135,7 @@ export async function POST(req: Request) {
           }
         });
 
-        const prompt = `You are a Senior Engineering Placement Director calibrating a student's actual placement readiness report.
+        const prompt = `You are a Senior Placement Director & Career Coach calibrating a higher education student's actual placement readiness report.
 CANDIDATE INTAKE PROFILE:
 - Degree: ${degree} (${semester})
 - CGPA Band: ${cgpaBand}

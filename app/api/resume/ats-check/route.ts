@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
 
     let data: any = null;
 
-    const prompt = `You are a Principal Engineering Recruiter and ATS Optimization Engine.
+    const prompt = `You are a Senior Talent Acquisition Lead & ATS Optimization Engine.
 Analyze the following candidate resume against industry hiring criteria for the role: "${roleName}".
 
 TARGET ROLE EXPECTED SKILLS:

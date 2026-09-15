@@ -816,7 +816,7 @@ export default function CareerCompassApp() {
       id: currentUser?.id || "usr_" + Math.random().toString(36).substring(2, 9),
       name: candidateName.trim() || authName.trim() || (currentUser?.name || "Candidate"),
       username: (candidateName.trim() || authName.trim() || (currentUser?.name || "candidate")).toLowerCase().replace(/[^a-z0-9]/g, "_"),
-      college: candidateCollege.trim() || (currentUser?.college || "School of Computing & Engineering"),
+      college: candidateCollege.trim() || (currentUser?.college || "University / College of Higher Studies"),
       email: authEmail.trim() || (currentUser?.email || "candidate@college.edu"),
       degree: selectedDegree,
       semesterOrStatus: selectedSemester,
@@ -1325,7 +1325,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
             verdict: isVague ? "Additional Preparation Recommended" : "Good Understanding of Core Concepts",
             strengths: "Addressed core questions and walked through logic during technical screening.",
             weaknesses: isVague 
-              ? "Ensure answers are backed by concrete engineering examples and technical depth." 
+              ? "Ensure answers are backed by concrete practical examples and analytical depth." 
               : "Continue practicing asynchronous race conditions and indexing nuances.",
             modelAnswer: "Address both the theoretical definition and practical system tradeoffs with structured examples.",
             communicationScore: "Professional technical dialogue."
@@ -1621,16 +1621,16 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         <section className="px-6 md:px-12 pt-14 pb-12 max-w-4xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center space-x-2 bg-[#FAF6EE] border-2 border-[#1E1B18] shadow-[2px_2px_0px_#1E1B18] px-3.5 py-1.5 rounded-lg text-xs font-bold text-ink">
             <span className="uiverse-radar-beacon w-2.5 h-2.5 rounded-full bg-[#2D6A4F] text-[#2D6A4F]"></span>
-            <span className="font-pixel uppercase tracking-wider text-[11px]">Developer Career Engine</span>
+            <span className="font-pixel uppercase tracking-wider text-[11px]">Higher Education & Career Engine</span>
           </div>
 
           <h1 className="font-display text-4xl sm:text-5xl md:text-6xl text-ink font-bold tracking-tight leading-tight">
             The direct path from <br className="hidden sm:inline" />
-            <span className="text-path">code to hired.</span>
+            <span className="text-path">learning to hired.</span>
           </h1>
 
           <p className="text-ink-40 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed font-medium">
-            Benchmark your engineering skills, follow curated 12-week roadmaps, earn accredited certificates, and build ATS-ready resumes.
+            Benchmark your practical skills, follow curated 12-week roadmaps, earn accredited certificates, and build ATS-ready resumes — tailored for college, university, and post-secondary students from all backgrounds.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -2129,7 +2129,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                     <label className="text-xs font-mono uppercase text-ink-40 block mb-1.5 font-semibold">College / University</label>
                     <input
                       type="text"
-                      placeholder="e.g. NIT / Engineering College"
+                      placeholder="e.g. Delhi University / Mumbai University / IIT / HIET / College of Commerce"
                       value={candidateCollege}
                       onChange={e => setCandidateCollege(e.target.value)}
                       className="w-full text-xs p-3 rounded-lg border border-hairline focus:border-ink focus:outline-none bg-paper text-ink shadow-xs"
@@ -2308,9 +2308,9 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
           {onboardingStep === 3 && (
             <div className="space-y-6">
               <div>
-                <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Step 3 of 4 · Engineering Track</span>
+                <span className="text-xs font-mono uppercase tracking-wider text-path font-semibold">Step 3 of 4 · Career Specialization Track</span>
                 <h2 className="font-display text-2xl md:text-3xl font-semibold text-ink mt-1">
-                  Which engineering track do you want to target?
+                  Which career specialization track do you want to target?
                 </h2>
                 <p className="text-xs text-ink-40 mt-1">
                   Your benchmark diagnostic and 12-week curriculum will be calibrated specifically for this role.
@@ -2788,7 +2788,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                   Welcome back, {currentUser?.name ? currentUser.name.split(" ")[0] : "Candidate"} 👋
                 </h1>
                 <p className="text-xs md:text-sm text-[#685F53] mt-1 max-w-xl font-medium">
-                  Track your engineering readiness, skill benchmarks, and milestone curriculum.
+                  Track your placement readiness, skill benchmarks, and milestone curriculum.
                 </p>
               </div>
 
@@ -3067,7 +3067,7 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
         )}
 
         {/* ===================================================================
-            HUB: TARGET ENGINEERING COMPANIES & PORTALS
+            HUB: TARGET RECRUITERS & COMPANIES
         =================================================================== */}
         {appView === "companies" && (() => {
           const userCgpaNum = currentUser?.cgpaBand?.includes("9") ? 9.0 :
@@ -3102,10 +3102,10 @@ Verified by CareerCompass AI Diagnostic Engine · Empowering College Scholars
                       <span>Corporate Placement Gateway</span>
                     </div>
                     <h2 className="font-pixel text-2xl md:text-3xl font-bold text-[#1E1B18] tracking-tight">
-                      Target Engineering Companies & Portals
+                      Target Companies & Recruiting Portals
                     </h2>
                     <p className="text-xs md:text-sm text-[#685F53] mt-1 max-w-xl font-medium">
-                      Live recruitment criteria, verified compensation packages, required technical stacks, and direct career application portals.
+                      Live recruitment criteria, verified compensation packages, required competency stacks, and direct career application portals.
                     </p>
                   </div>
                   <div className="flex items-center space-x-3 shrink-0">

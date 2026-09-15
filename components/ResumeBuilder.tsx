@@ -76,7 +76,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
               name: p.title || "Project",
               techStack: Array.isArray(p.techStack) ? p.techStack.join(", ") : (p.techStack || ""),
               link: p.githubUrl || p.liveUrl || "",
-              bullets: [p.description || "Developed full-stack application following software engineering best practices."]
+              bullets: [p.description || "Developed practical application following professional industry best practices."]
             }));
           }
         }
@@ -97,14 +97,14 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         portfolio: user?.portfolioUrl || ""
       },
       summary: user?.name 
-        ? `Software engineer specialized in ${cleanBadge(selectedTrackTitle)} with hands-on experience building scalable applications, system architectures, and reliable software.`
+        ? `Dedicated and results-driven professional specialized in ${cleanBadge(selectedTrackTitle)} with hands-on project experience, strong problem-solving skills, and a proven ability to deliver production results.`
         : "",
       skills: defaultSkills,
       experience: [],
       projects: initialProjects,
       education: [
         {
-          degree: user?.degree || "B.Tech Computer Science & Engineering",
+          degree: user?.degree || "Bachelor of Science / B.Tech / BCA / B.Com / BBA",
           institution: user?.college || "",
           duration: user?.graduationYear ? `Class of ${user.graduationYear}` : "",
           score: user?.cgpaBand ? user.cgpaBand.split(" ")[0] : ""
@@ -198,7 +198,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         newEducation[0] = edu;
       } else if (user.college || user.degree) {
         newEducation.push({
-          degree: user.degree || "B.Tech Computer Science & Engineering",
+          degree: user.degree || "Bachelor's Degree / Undergraduate (Higher Studies)",
           institution: user.college || "",
           duration: user.graduationYear ? `Class of ${user.graduationYear}` : "",
           score: user.cgpaBand ? user.cgpaBand.split(" ")[0] : ""
@@ -223,10 +223,10 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         const profileProjects = JSON.parse(saved);
         if (Array.isArray(profileProjects) && profileProjects.length > 0) {
           const converted = profileProjects.map((p: any) => ({
-            name: p.title || "Engineering Project",
+            name: p.title || "Featured Project",
             techStack: Array.isArray(p.techStack) ? p.techStack.join(", ") : (p.techStack || ""),
             link: p.githubUrl || p.liveUrl || "",
-            bullets: [p.description || "Developed full-stack application following software engineering best practices."]
+            bullets: [p.description || "Designed and implemented practical solution following industry best practices."]
           }));
           setResumeData(prev => {
             const existingNames = new Set(prev.projects.map(pr => pr.name.toLowerCase()));
@@ -389,7 +389,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
     }
   };
 
-  // Trigger Clean Print to PDF (Zero Blank Pages via Isolated Iframe)
+  // Trigger Clean Print to PDF (Zero Blank Pages & 100% Format Fidelity)
   const handlePrintPDF = () => {
     setIsExportingPDF(true);
     try {
@@ -407,6 +407,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
         }
 
         const iframe = document.createElement("iframe");
+        iframe.id = "careercompass-print-sandbox";
         iframe.style.position = "fixed";
         iframe.style.right = "0";
         iframe.style.bottom = "0";
@@ -422,33 +423,40 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
           return;
         }
 
+        // Collect all active stylesheets and font links from host document
+        const headStyles = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
+          .map(el => el.outerHTML)
+          .join("\n");
+
         doc.open();
         doc.write(`
           <!DOCTYPE html>
           <html>
             <head>
               <meta charset="utf-8">
-              <title>${resumeData.personalInfo.name || "Candidate"} - Resume</title>
+              <title>${resumeData.personalInfo.name || "Candidate"} - ATS Resume</title>
+              ${headStyles}
               <style>
                 @page {
                   size: A4 portrait;
-                  margin: 8mm 10mm 8mm 10mm;
+                  margin: 10mm 12mm 10mm 12mm;
                 }
                 * {
-                  box-sizing: border-box;
+                  box-sizing: border-box !important;
                   -webkit-print-color-adjust: exact !important;
                   print-color-adjust: exact !important;
                 }
                 html, body {
-                  margin: 0;
-                  padding: 0;
+                  margin: 0 !important;
+                  padding: 0 !important;
                   background: #ffffff !important;
                   color: #151E33 !important;
-                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                  font-size: 10pt;
-                  line-height: 1.4;
+                  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+                  font-size: 10pt !important;
+                  line-height: 1.45 !important;
+                  -webkit-font-smoothing: antialiased;
                 }
-                #resume-print-area {
+                #resume-print-area, .ats-resume-sheet {
                   width: 100% !important;
                   max-width: 100% !important;
                   box-shadow: none !important;
@@ -458,13 +466,109 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                   min-height: auto !important;
                   display: block !important;
                   visibility: visible !important;
+                  background: #ffffff !important;
                 }
-                h1 { font-size: 20pt !important; margin: 0 0 4pt 0 !important; font-weight: 700 !important; }
-                h2 { font-size: 12pt !important; margin: 8pt 0 4pt 0 !important; font-weight: 700 !important; }
-                h3 { font-size: 10.5pt !important; margin: 3pt 0 2pt 0 !important; }
-                p, li, span { font-size: 9.5pt !important; }
-                ul { margin-top: 2pt !important; margin-bottom: 6pt !important; padding-left: 14pt !important; }
-                li { margin-bottom: 2pt !important; }
+                .ats-accent-bar {
+                  display: block !important;
+                  width: 100% !important;
+                  height: 4px !important;
+                  margin-bottom: 14px !important;
+                  border-radius: 9999px !important;
+                }
+                .ats-header {
+                  padding-bottom: 10px !important;
+                  border-bottom: 1.5px solid #E5E7EB !important;
+                  margin-bottom: 14px !important;
+                }
+                .ats-candidate-name {
+                  font-size: 22pt !important;
+                  font-weight: 700 !important;
+                  margin: 0 0 6px 0 !important;
+                  line-height: 1.1 !important;
+                }
+                .ats-contact-row {
+                  display: flex !important;
+                  flex-wrap: wrap !important;
+                  align-items: center !important;
+                  gap: 4px 10px !important;
+                  font-size: 9pt !important;
+                  color: #4B5563 !important;
+                  font-family: monospace, Courier, sans-serif !important;
+                  margin-top: 4px !important;
+                }
+                .ats-section {
+                  margin-top: 14px !important;
+                  page-break-inside: auto !important;
+                  break-inside: auto !important;
+                }
+                .ats-section-title {
+                  font-size: 10.5pt !important;
+                  font-weight: 700 !important;
+                  text-transform: uppercase !important;
+                  letter-spacing: 0.08em !important;
+                  border-bottom: 1.5px solid #E5E7EB !important;
+                  padding-bottom: 3px !important;
+                  margin-bottom: 8px !important;
+                  font-family: monospace, Courier, sans-serif !important;
+                  page-break-after: avoid !important;
+                  break-after: avoid !important;
+                }
+                .ats-skills-wrap {
+                  display: flex !important;
+                  flex-wrap: wrap !important;
+                  gap: 5px !important;
+                }
+                .ats-skill-badge {
+                  font-size: 8.5pt !important;
+                  font-family: monospace, Courier, sans-serif !important;
+                  padding: 2px 7px !important;
+                  border-radius: 4px !important;
+                  background-color: #F3F4F6 !important;
+                  color: #1F2937 !important;
+                  border: 1px solid #E5E7EB !important;
+                  display: inline-block !important;
+                }
+                .ats-item {
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                  margin-bottom: 10px !important;
+                }
+                .ats-item-header {
+                  display: flex !important;
+                  justify-content: space-between !important;
+                  align-items: baseline !important;
+                  margin-bottom: 2px !important;
+                }
+                .ats-item-title {
+                  font-size: 10pt !important;
+                  font-weight: 700 !important;
+                  color: #111827 !important;
+                }
+                .ats-item-date {
+                  font-size: 8.5pt !important;
+                  color: #6B7280 !important;
+                  font-family: monospace, Courier, sans-serif !important;
+                  white-space: nowrap !important;
+                }
+                .ats-bullets {
+                  margin: 3px 0 0 0 !important;
+                  padding-left: 18px !important;
+                  list-style-type: disc !important;
+                  font-size: 9pt !important;
+                  color: #374151 !important;
+                  line-height: 1.4 !important;
+                }
+                .ats-bullets li {
+                  margin-bottom: 2px !important;
+                }
+                .ats-edu-item {
+                  display: flex !important;
+                  justify-content: space-between !important;
+                  align-items: baseline !important;
+                  margin-bottom: 6px !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                }
               </style>
             </head>
             <body>
@@ -483,7 +587,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
             }
             setIsExportingPDF(false);
           }, 1000);
-        }, 350);
+        }, 400);
       }, 100);
     } catch (err) {
       console.error("Print error:", err);
@@ -542,7 +646,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
             </div>
           </div>
           <p className="text-xs text-[#1E1B18]/70 mt-1 max-w-lg leading-relaxed">
-            Build and export a single-page engineering resume formatted for <strong className="text-[#1E1B18]">{cleanBadge(selectedTrackTitle)}</strong>.
+            Build and export a single-page ATS-ready resume formatted for <strong className="text-[#1E1B18]">{cleanBadge(selectedTrackTitle)}</strong>.
           </p>
         </div>
 
@@ -882,7 +986,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
             >
               <span className="flex items-center space-x-2.5">
                 <span className="w-6 h-6 rounded-lg bg-[#1E1B18] text-[#FAF6EE] font-pixel text-xs font-bold flex items-center justify-center border-2 border-[#1E1B18] shadow-xs">4</span>
-                <span>Engineering Projects ({resumeData.projects.length})</span>
+                <span>Featured Projects ({resumeData.projects.length})</span>
               </span>
               {activeSection === "projects" ? <ChevronUp className="w-4 h-4 text-[#1E1B18]" /> : <ChevronDown className="w-4 h-4 text-[#1E1B18]" />}
             </button>
@@ -890,7 +994,7 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
               <div className="p-4 sm:p-5 border-t-2 border-[#1E1B18] space-y-4 text-xs bg-[#F2EAD6]/50">
                 {resumeData.projects.length === 0 ? (
                   <div className="text-center py-6 border-2 border-dashed border-[#1E1B18]/40 rounded-xl bg-[#FAF6EE] p-4 space-y-1.5 text-[#1E1B18]/70">
-                    <p className="font-bold text-[#1E1B18] font-pixel">No engineering projects added yet.</p>
+                    <p className="font-bold text-[#1E1B18] font-pixel">No projects added yet.</p>
                     <p className="text-[11px]">Click below to add your capstone or portfolio projects. You can generate and polish impact bullets using Gemini AI.</p>
                   </div>
                 ) : (
@@ -1049,10 +1153,10 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                     </div>
                     <div className="space-y-2.5">
                       <div>
-                        <label className="text-[10px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1">Degree & Branch</label>
+                        <label className="text-[10px] font-pixel uppercase text-[#1E1B18]/70 font-bold block mb-1">Degree & Major</label>
                         <input
                           type="text"
-                          placeholder="e.g. B.Tech Computer Science & Engineering"
+                          placeholder="e.g. B.Com / B.Tech / BCA / B.Sc / BBA / B.A."
                           value={edu.degree}
                           onChange={e => {
                             const updated = [...(resumeData.education || [])];
@@ -1213,10 +1317,10 @@ export default function ResumeBuilder({ user, selectedTrackTitle, enrolledCourse
                     experience: [
                       ...prev.experience,
                       {
-                        role: "Software Engineering Intern",
-                        company: "Company Name",
+                        role: "Project / Professional Intern",
+                        company: "Company / Organization",
                         duration: "Summer 2025",
-                        bullets: ["Engineered core features and collaborated with senior engineering staff."]
+                        bullets: ["Delivered core project deliverables and collaborated effectively with team mentors."]
                       }
                     ]
                   }))}

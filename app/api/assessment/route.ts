@@ -90,7 +90,7 @@ const TRADE_FALLBACK_BANKS: Record<string, any> = {
       recommendedTrack: "Junior Full-Stack Web Developer (Python + React)",
       primaryStrength: "Intuitive grasp of client-server architecture, HTTP semantics, and modern frontend/backend patterns.",
       criticalGap: "Relational database indexing, RESTful status codes, and asynchronous state management.",
-      placementAdvice: "Construct an authenticated CRUD application with FastAPI/Django and Next.js to impress engineering recruiters."
+      placementAdvice: "Construct an authenticated CRUD application with FastAPI/Django and Next.js to impress hiring managers."
     },
     questions: [
       {
@@ -358,9 +358,9 @@ export async function POST(req: Request) {
           }
         });
 
-        const prompt = `You are a supportive, student-friendly Senior Engineering Professor preparing a diagnostic evaluation for a college student.
+        const prompt = `You are a supportive, student-friendly University Professor & Career Director preparing a diagnostic evaluation for a college student or higher education learner.
 Candidate Intake Profile:
-- Degree: ${degree || "B.Tech Computer Science"}
+- Degree: ${degree || "Higher Education / Undergraduate"}
 - Academic Semester: ${semester || "1st / 2nd Year (Foundations)"}
 - Hands-on Coding Experience: ${codingExperience || "Beginner (< 6 months, basic syntax)"}
 - DSA Practice: ${dsaCount || "0 – 25 Problems"}
@@ -369,14 +369,14 @@ Candidate Intake Profile:
 
 STRICT DIFFICULTY RULES:
 ${calibratedLevel === "beginner" ? `
-- This student is a BEGINNER (1st or 2nd year engineering student).
+- This student is a BEGINNER (1st or 2nd year higher education student).
 - Questions MUST test fundamental, accessible concepts: variables, data types, if/else conditions, loops, functions, array/list indexing, and simple foundational concepts for ${trade}.
 - NEVER ask advanced production distributed systems, LLM memory architectures, PagedAttention, multi-stage Docker builds, or B-tree disk pages. Keep it accessible and encouraging!
 ` : calibratedLevel === "intermediate" ? `
-- This student is an INTERMEDIATE (3rd year engineering student).
+- This student is an INTERMEDIATE (3rd year higher education student).
 - Questions should test applied fundamentals: OOP concepts, basic data structures (stacks, queues, binary search), basic SQL (SELECT, WHERE, JOIN), RESTful conventions, and clean modular code.
 ` : `
-- This student is an ADVANCED (Final year / placement candidate).
+- This student is an ADVANCED (Final year / graduate placement candidate).
 - Questions can test system design basics, caching, asynchronous concurrency, and performance optimization.
 `}
 
@@ -426,7 +426,7 @@ Return ONLY a JSON object strictly matching this schema:
     tradeAnalysis: {
       tradeFitIndex: calibratedLevel === "beginner" ? 78 : calibratedLevel === "intermediate" ? 82 : 86,
       recommendedTrack: trade || "Software Engineer",
-      primaryStrength: `Good initial curiosity and readiness to master ${trade || "software engineering"} foundations.`,
+      primaryStrength: `Good initial curiosity and readiness to master ${trade || "core career"} foundations.`,
       criticalGap: `Daily hands-on practice with syntax fundamentals and simple problem-solving drills.`,
       placementAdvice: `Follow the step-by-step 12-week roadmap to build your confidence and project portfolio.`
     },
